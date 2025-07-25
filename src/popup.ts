@@ -2,6 +2,7 @@ interface TimerState {
   timeLeft: number;
   isRunning: boolean;
   intervalId: number | null;
+  startTime?: number; // タイマー開始時刻
 }
 
 export class PomodoroTimer {
@@ -32,7 +33,9 @@ export class PomodoroTimer {
     this.preset1sec = this.getElementById('preset1sec') as HTMLButtonElement;
     
     this.initEventListeners();
-    this.updateDisplay();
+    this.restoreState().then(() => {
+      this.updateDisplay();
+    });
   }
 
   private getElementById(id: string): HTMLElement {
@@ -41,6 +44,57 @@ export class PomodoroTimer {
       throw new Error(`Element with id "${id}" not found`);
     }
     return element;
+  }
+
+  private async saveState(): Promise<void> {
+    const stateToSave = {
+      timeLeft: this.state.timeLeft,
+      isRunning: this.state.isRunning,
+      startTime: this.state.startTime
+    };
+    
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      await chrome.storage.local.set({ pomodoroState: stateToSave });
+    }
+  }
+
+  private async restoreState(): Promise<void> {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      const result = await chrome.storage.local.get('pomodoroState');
+      if (result.pomodoroState) {
+        const savedState = result.pomodoroState;
+        this.state.timeLeft = savedState.timeLeft;
+        
+        // タイマーが実行中だった場合、経過時間を計算
+        if (savedState.isRunning && savedState.startTime) {
+          const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+          this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
+          
+          if (this.state.timeLeft > 0) {
+            this.resumeTimer();
+          } else {
+            this.complete();
+          }
+        }
+      }
+    }
+  }
+
+  private resumeTimer(): void {
+    this.state.isRunning = true;
+    this.state.startTime = Date.now() - (this.state.timeLeft * 1000);
+    this.startBtn.disabled = true;
+    this.pauseBtn.disabled = false;
+    
+    this.state.intervalId = window.setInterval(() => {
+      this.state.timeLeft--;
+      this.updateDisplay();
+      this.saveState();
+      
+      if (this.state.timeLeft <= 0) {
+        this.complete();
+      }
+    }, 1000);
   }
   
   private initEventListeners(): void {
@@ -57,17 +111,21 @@ export class PomodoroTimer {
   public start(): void {
     if (!this.state.isRunning) {
       this.state.isRunning = true;
+      this.state.startTime = Date.now();
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       
       this.state.intervalId = window.setInterval(() => {
         this.state.timeLeft--;
         this.updateDisplay();
+        this.saveState();
         
         if (this.state.timeLeft <= 0) {
           this.complete();
         }
       }, 1000);
+
+      this.saveState();
     }
   }
   
@@ -81,19 +139,24 @@ export class PomodoroTimer {
         clearInterval(this.state.intervalId);
         this.state.intervalId = null;
       }
+
+      this.saveState();
     }
   }
   
   public reset(): void {
     this.pause();
     this.state.timeLeft = 25 * 60;
+    this.state.startTime = undefined;
     this.updateDisplay();
+    this.saveState();
   }
   
   public setTime(minutes: number): void {
     if (!this.state.isRunning) {
       this.state.timeLeft = minutes * 60;
       this.updateDisplay();
+      this.saveState();
     }
   }
   
@@ -101,6 +164,7 @@ export class PomodoroTimer {
     if (!this.state.isRunning) {
       this.state.timeLeft = seconds;
       this.updateDisplay();
+      this.saveState();
     }
   }
 
