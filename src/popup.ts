@@ -212,13 +212,17 @@ class PomodoroTimer {
   }
 }
 
-// テスト環境用のexport
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PomodoroTimer };
+// テスト用にwindowオブジェクトに追加
+declare global {
+  interface Window {
+    PomodoroTimer: typeof PomodoroTimer;
+  }
 }
 
-// グローバル変数としても公開（テスト用）
-(global as any).PomodoroTimer = PomodoroTimer;
+// テスト環境でグローバルアクセス可能にする
+if (typeof window !== 'undefined') {
+  window.PomodoroTimer = PomodoroTimer;
+}
 
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
