@@ -110,8 +110,7 @@ describe('PomodoroTimer', () => {
       }, { timeout: 1000 })
     })
 
-    // シンプルなテストケースに変更
-    it('時間切れの場合は0秒になり停止する', async () => {
+    it('時間切れの場合は完了状態になる', async () => {
       const saveTime = Date.now() - 15000
       
       mockStorage.local.get.mockResolvedValue({
@@ -127,11 +126,10 @@ describe('PomodoroTimer', () => {
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(0)
         expect(timer.getIsRunning()).toBe(false)
+        
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('完了！')
       }, { timeout: 1000 })
-      
-      // 表示は00:00になることを確認（完了表示のテストは削除）
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('00:00')
     })
   })
 
