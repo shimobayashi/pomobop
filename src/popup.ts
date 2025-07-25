@@ -4,7 +4,7 @@ interface TimerState {
   intervalId: number | null;
 }
 
-class PomodoroTimer {
+export class PomodoroTimer {
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
@@ -102,6 +102,15 @@ class PomodoroTimer {
       this.state.timeLeft = seconds;
       this.updateDisplay();
     }
+  }
+
+  // テスト用のgetters
+  public getTimeLeft(): number {
+    return this.state.timeLeft;
+  }
+  
+  public getIsRunning(): boolean {
+    return this.state.isRunning;
   }
   
   private complete(): void {
