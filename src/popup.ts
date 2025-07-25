@@ -212,8 +212,10 @@ class PomodoroTimer {
   }
 }
 
-// テスト用にグローバルアクセス可能にする
-(window as any).PomodoroTimer = PomodoroTimer;
+// テスト環境でのみクラスを公開
+if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+  (globalThis as any).PomodoroTimer = PomodoroTimer;
+}
 
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
