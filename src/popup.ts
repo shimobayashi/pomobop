@@ -104,14 +104,6 @@ class PomodoroTimer {
     }
   }
   
-  public getTimeLeft(): number {
-    return this.state.timeLeft;
-  }
-  
-  public isRunning(): boolean {
-    return this.state.isRunning;
-  }
-  
   private complete(): void {
     this.pause();
     this.timerDisplay.textContent = "完了！";
