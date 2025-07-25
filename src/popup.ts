@@ -6,7 +6,7 @@ interface TimerState {
   isCompleted?: boolean; // 完了状態フラグ
 }
 
-class PomodoroTimer {
+export class PomodoroTimer {
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
@@ -211,9 +211,6 @@ class PomodoroTimer {
     this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 }
-
-// テスト用にグローバルアクセス可能にする
-(window as any).PomodoroTimer = PomodoroTimer;
 
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
