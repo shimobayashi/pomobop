@@ -72,7 +72,7 @@ export class PomodoroTimer {
           if (this.state.timeLeft > 0) {
             this.resumeTimer();
           } else {
-            this.complete();
+            await this.complete();
           }
         } else {
           // 停止中だった場合はそのまま復元
@@ -87,13 +87,13 @@ export class PomodoroTimer {
     this.startBtn.disabled = true;
     this.pauseBtn.disabled = false;
     
-    this.state.intervalId = window.setInterval(() => {
+    this.state.intervalId = window.setInterval(async () => {
       this.state.timeLeft--;
       this.updateDisplay();
-      this.saveState();
+      await this.saveState();
       
       if (this.state.timeLeft <= 0) {
-        this.complete();
+        await this.complete();
       }
     }, 1000);
   }
@@ -115,13 +115,13 @@ export class PomodoroTimer {
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       
-      this.state.intervalId = window.setInterval(() => {
+      this.state.intervalId = window.setInterval(async () => {
         this.state.timeLeft--;
         this.updateDisplay();
-        this.saveState();
+        await this.saveState();
         
         if (this.state.timeLeft <= 0) {
-          this.complete();
+          await this.complete();
         }
       }, 1000);
 
@@ -176,14 +176,14 @@ export class PomodoroTimer {
     return this.state.isRunning;
   }
   
-  private complete(): void {
-    this.pause();
+  private async complete(): Promise<void> {
+    await this.pause();
     this.timerDisplay.textContent = "完了！";
     this.timerDisplay.style.color = "#27ae60";
     
     // 3秒後にリセット
-    setTimeout(() => {
-      this.reset();
+    setTimeout(async () => {
+      await this.reset();
       this.timerDisplay.style.color = "#e74c3c";
     }, 3000);
   }
