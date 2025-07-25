@@ -2,7 +2,7 @@ interface TimerState {
   timeLeft: number;
   isRunning: boolean;
   intervalId: number | null;
-  startTime?: number; // タイマー開始時刻
+  lastSaveTime?: number; // 最後に保存した時刻
 }
 
 class PomodoroTimer {
@@ -50,7 +50,7 @@ class PomodoroTimer {
     const stateToSave = {
       timeLeft: this.state.timeLeft,
       isRunning: this.state.isRunning,
-      startTime: this.state.startTime
+      lastSaveTime: Date.now()
     };
     
     if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -63,11 +63,10 @@ class PomodoroTimer {
       const result = await chrome.storage.local.get('pomodoroState');
       if (result.pomodoroState) {
         const savedState = result.pomodoroState;
-        this.state.timeLeft = savedState.timeLeft;
         
         // タイマーが実行中だった場合、経過時間を計算
-        if (savedState.isRunning && savedState.startTime) {
-          const elapsed = Math.floor((Date.now() - savedState.startTime) / 1000);
+        if (savedState.isRunning && savedState.lastSaveTime) {
+          const elapsed = Math.floor((Date.now() - savedState.lastSaveTime) / 1000);
           this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
           
           if (this.state.timeLeft > 0) {
@@ -75,6 +74,9 @@ class PomodoroTimer {
           } else {
             this.complete();
           }
+        } else {
+          // 停止中だった場合はそのまま復元
+          this.state.timeLeft = savedState.timeLeft;
         }
       }
     }
@@ -82,7 +84,6 @@ class PomodoroTimer {
 
   private resumeTimer(): void {
     this.state.isRunning = true;
-    this.state.startTime = Date.now() - (this.state.timeLeft * 1000);
     this.startBtn.disabled = true;
     this.pauseBtn.disabled = false;
     
@@ -111,7 +112,6 @@ class PomodoroTimer {
   public start(): void {
     if (!this.state.isRunning) {
       this.state.isRunning = true;
-      this.state.startTime = Date.now();
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       
@@ -147,7 +147,6 @@ class PomodoroTimer {
   public reset(): void {
     this.pause();
     this.state.timeLeft = 25 * 60;
-    this.state.startTime = undefined;
     this.updateDisplay();
     this.saveState();
   }
