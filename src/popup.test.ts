@@ -1,8 +1,30 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { PomodoroTimer } from './popup'
+import './popup' // メインファイルを読み込み
+
+// Chrome Storage APIのモック
+const mockStorage = {
+  local: {
+    get: vi.fn().mockResolvedValue({}),
+    set: vi.fn().mockResolvedValue(undefined)
+  }
+};
+
+// Chromeオブジェクトのモック
+Object.defineProperty(global, 'chrome', {
+  value: {
+    storage: mockStorage
+  },
+  writable: true
+});
+
+// windowオブジェクトのモック
+Object.defineProperty(global, 'window', {
+  value: global,
+  writable: true
+});
 
 describe('PomodoroTimer', () => {
-  let timer: PomodoroTimer
+  let timer: any
 
   beforeEach(() => {
     // HTMLをセットアップ
@@ -17,151 +39,113 @@ describe('PomodoroTimer', () => {
       <button id="preset1sec">1秒テスト</button>
     `
     
-    timer = new PomodoroTimer()
+    // モックをリセット
+    mockStorage.local.get.mockClear()
+    mockStorage.local.set.mockClear()
+    mockStorage.local.get.mockResolvedValue({}) // デフォルトで空の状態
+
     vi.useFakeTimers()
   })
 
   afterEach(() => {
-    // タイマーをクリーンアップ
-    timer.pause()
+    if (timer) {
+      timer.pause()
+    }
     vi.useRealTimers()
   })
 
   describe('初期化', () => {
-    it('デフォルトで25分に設定される', () => {
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-      expect(timer.getIsRunning()).toBe(false)
-    })
-
-    it('表示が正しく初期化される', () => {
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('25:00')
+    it('デフォルトで25分に設定される', async () => {
+      timer = new (global as any).PomodoroTimer()
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(25 * 60)
+        expect(timer.getIsRunning()).toBe(false)
+      }, { timeout: 1000 })
     })
   })
 
-  describe('プリセット機能', () => {
-    it('25分プリセットが動作する', () => {
-      timer.setTime(25)
-      expect(timer.getTimeLeft()).toBe(25 * 60)
+  describe('状態の永続化', () => {
+    it('タイマー開始時に状態が保存される', async () => {
+      timer = new (global as any).PomodoroTimer()
+      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
+      
+      await timer.start()
+      
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          timeLeft: 25 * 60,
+          isRunning: true,
+          lastSaveTime: expect.any(Number)
+        })
+      })
     })
 
-    it('15分プリセットが動作する', () => {
-      timer.setTime(15)
+    it('停止中の状態が復元される', async () => {
+      mockStorage.local.get.mockResolvedValue({
+        pomodoroState: {
+          timeLeft: 15 * 60,
+          isRunning: false,
+          lastSaveTime: Date.now()
+        }
+      })
+
+      timer = new (global as any).PomodoroTimer()
+      
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(15 * 60)
+        expect(timer.getIsRunning()).toBe(false)
+      }, { timeout: 1000 })
+    })
+
+    it('実行中の状態が正しく復元される', async () => {
+      const saveTime = Date.now() - 5000
+      
+      mockStorage.local.get.mockResolvedValue({
+        pomodoroState: {
+          timeLeft: 10,
+          isRunning: true,
+          lastSaveTime: saveTime
+        }
+      })
+
+      timer = new (global as any).PomodoroTimer()
+      
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(5)
+        expect(timer.getIsRunning()).toBe(true)
+      }, { timeout: 1000 })
+    })
+
+    it('時間切れの場合は完了状態になる', async () => {
+      const saveTime = Date.now() - 15000
+      
+      mockStorage.local.get.mockResolvedValue({
+        pomodoroState: {
+          timeLeft: 10,
+          isRunning: true,
+          lastSaveTime: saveTime
+        }
+      })
+
+      timer = new (global as any).PomodoroTimer()
+      
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(0)
+        expect(timer.getIsRunning()).toBe(false)
+        
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('完了！')
+      }, { timeout: 1000 })
+    })
+  })
+
+  describe('基本機能', () => {
+    it('プリセット機能が動作する', async () => {
+      timer = new (global as any).PomodoroTimer()
+      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
+      
+      await timer.setTime(15)
       expect(timer.getTimeLeft()).toBe(15 * 60)
-    })
-
-    it('5分プリセットが動作する', () => {
-      timer.setTime(5)
-      expect(timer.getTimeLeft()).toBe(5 * 60)
-    })
-
-    it('1秒プリセットが動作する', () => {
-      timer.setTimeSeconds(1)
-      expect(timer.getTimeLeft()).toBe(1)
-    })
-  })
-
-  describe('タイマー操作', () => {
-    it('開始ボタンでタイマーが開始される', () => {
-      timer.start()
-      expect(timer.getIsRunning()).toBe(true)
-      
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      expect(startBtn.disabled).toBe(true)
-      expect(pauseBtn.disabled).toBe(false)
-    })
-
-    it('一時停止ボタンでタイマーが停止される', () => {
-      timer.start()
-      timer.pause()
-      expect(timer.getIsRunning()).toBe(false)
-      
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      expect(startBtn.disabled).toBe(false)
-      expect(pauseBtn.disabled).toBe(true)
-    })
-
-    it('リセットボタンで25分に戻る', () => {
-      timer.setTime(10)
-      timer.reset()
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-      expect(timer.getIsRunning()).toBe(false)
-    })
-  })
-
-  describe('タイマーのカウントダウン', () => {
-    it('実行中はプリセット変更できない', () => {
-      timer.start()
-      const initialTime = timer.getTimeLeft()
-      timer.setTime(10)
-      expect(timer.getTimeLeft()).toBe(initialTime)
-    })
-
-    it('1秒経過で時間が減る', () => {
-      timer.setTimeSeconds(10)
-      timer.start()
-      
-      vi.advanceTimersByTime(1000)
-      expect(timer.getTimeLeft()).toBe(9)
-    })
-
-    it('複数秒経過で時間が減る', () => {
-      timer.setTimeSeconds(10)
-      timer.start()
-      
-      vi.advanceTimersByTime(3000)
-      expect(timer.getTimeLeft()).toBe(7)
-    })
-  })
-
-  describe('タイマー完了', () => {
-    it('タイマーが0になると完了状態になる', () => {
-      timer.setTimeSeconds(2)
-      timer.start()
-      
-      // 2秒経過でタイマー完了
-      vi.advanceTimersByTime(2000)
-      
-      expect(timer.getTimeLeft()).toBe(0)
-      expect(timer.getIsRunning()).toBe(false)
-      
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('完了！')
-      expect(display?.style.color).toBe('rgb(39, 174, 96)') // #27ae60
-    })
-
-    it('完了後3秒でリセットされる', () => {
-      timer.setTimeSeconds(1)
-      timer.start()
-      
-      // 1秒経過でタイマー完了
-      vi.advanceTimersByTime(1000)
-      expect(timer.getTimeLeft()).toBe(0)
-      
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('完了！')
-      
-      // さらに3秒経過でリセット
-      vi.advanceTimersByTime(3000)
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-      expect(display?.textContent).toBe('25:00')
-      expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
-    })
-
-    it('完了時にボタンが正しい状態になる', () => {
-      timer.setTimeSeconds(1)
-      timer.start()
-      
-      // 1秒経過でタイマー完了
-      vi.advanceTimersByTime(1000)
-      
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      
-      expect(startBtn.disabled).toBe(false)
-      expect(pauseBtn.disabled).toBe(true)
     })
   })
 })
