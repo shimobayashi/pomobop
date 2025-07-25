@@ -7,16 +7,76 @@
       width: 300px;
       padding: 20px;
       font-family: Arial, sans-serif;
+      text-align: center;
     }
     h1 {
-      text-align: center;
       color: #333;
+      margin-bottom: 20px;
+    }
+    .timer-display {
+      font-size: 48px;
+      font-weight: bold;
+      color: #e74c3c;
+      margin: 20px 0;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+    .preset-buttons {
+      margin: 15px 0;
+    }
+    .preset-buttons button {
+      background-color: #27ae60;
+      font-size: 12px;
+      padding: 8px 15px;
+    }
+    .preset-buttons button:hover {
+      background-color: #229954;
+    }
+    .test-button {
+      background-color: #f39c12 !important;
+      font-size: 11px !important;
+    }
+    .test-button:hover {
+      background-color: #e67e22 !important;
     }
   </style>
 </head>
 <body>
   <h1>Pomodoro Timer</h1>
-  <p>Chrome extension is working!</p>
+  
+  <div class="timer-display" id="timerDisplay">25:00</div>
+  
+  <div class="preset-buttons">
+    <button id="preset25">25分</button>
+    <button id="preset15">15分</button>
+    <button id="preset5">5分</button>
+    <button id="preset1sec" class="test-button">1秒テスト</button>
+  </div>
+  
+  <div class="controls">
+    <button id="startBtn">開始</button>
+    <button id="pauseBtn" disabled>一時停止</button>
+    <button id="resetBtn">リセット</button>
+  </div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
