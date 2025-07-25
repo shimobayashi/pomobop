@@ -24,7 +24,7 @@ describe('PomodoroTimer', () => {
   afterEach(() => {
     // タイマーをクリーンアップ
     timer.pause()
-    vi.restoreAllTimers()
+    vi.useRealTimers()
   })
 
   describe('初期化', () => {
