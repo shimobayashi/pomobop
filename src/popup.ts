@@ -5,7 +5,7 @@ interface TimerState {
   startTime?: number; // タイマー開始時刻
 }
 
-export class PomodoroTimer {
+class PomodoroTimer {
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
