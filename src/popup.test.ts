@@ -14,7 +14,8 @@ Object.defineProperty(global, 'chrome', {
   value: {
     storage: mockStorage
   },
-  writable: true
+  writable: true,
+  configurable: true
 });
 
 // windowオブジェクトのモック
@@ -190,12 +191,15 @@ describe('PomodoroTimer', () => {
       // 2秒経過でタイマー完了
       vi.advanceTimersByTime(2000)
       
-      expect(timer.getTimeLeft()).toBe(0)
-      expect(timer.getIsRunning()).toBe(false)
-      
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('完了！')
-      expect(display?.style.color).toBe('rgb(39, 174, 96)') // #27ae60
+      // 非同期complete処理の完了を待つ
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(0)
+        expect(timer.getIsRunning()).toBe(false)
+        
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('完了！')
+        expect(display?.style.color).toBe('rgb(39, 174, 96)') // #27ae60
+      }, { timeout: 1000 })
     })
 
     it('完了後3秒でリセットされる', async () => {
@@ -207,16 +211,23 @@ describe('PomodoroTimer', () => {
       
       // 1秒経過でタイマー完了
       vi.advanceTimersByTime(1000)
-      expect(timer.getTimeLeft()).toBe(0)
       
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('完了！')
+      // 完了状態を待つ
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(0)
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('完了！')
+      }, { timeout: 1000 })
       
       // さらに3秒経過でリセット
       vi.advanceTimersByTime(3000)
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-      expect(display?.textContent).toBe('25:00')
-      expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
+      
+      await vi.waitFor(() => {
+        expect(timer.getTimeLeft()).toBe(25 * 60)
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('25:00')
+        expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
+      }, { timeout: 1000 })
     })
 
     it('完了時にボタンが正しい状態になる', async () => {
@@ -229,11 +240,14 @@ describe('PomodoroTimer', () => {
       // 1秒経過でタイマー完了
       vi.advanceTimersByTime(1000)
       
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      
-      expect(startBtn.disabled).toBe(false)
-      expect(pauseBtn.disabled).toBe(true)
+      // 完了処理の完了を待つ
+      await vi.waitFor(() => {
+        const startBtn = document.getElementById('startBtn') as HTMLButtonElement
+        const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
+        
+        expect(startBtn.disabled).toBe(false)
+        expect(pauseBtn.disabled).toBe(true)
+      }, { timeout: 1000 })
     })
   })
 
@@ -312,9 +326,12 @@ describe('PomodoroTimer', () => {
     })
 
     it('Chrome拡張環境でない場合は状態保存をスキップ', async () => {
-      // Chromeオブジェクトを一時的に削除
-      const originalChrome = (global as any).chrome
-      delete (global as any).chrome
+      // configurable: trueを追加して削除可能にする
+      Object.defineProperty(global, 'chrome', {
+        value: undefined,
+        writable: true,
+        configurable: true
+      })
 
       timer = new (global as any).PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
@@ -325,7 +342,13 @@ describe('PomodoroTimer', () => {
       expect(mockStorage.local.set).not.toHaveBeenCalled()
 
       // Chromeオブジェクトを復元
-      ;(global as any).chrome = originalChrome
+      Object.defineProperty(global, 'chrome', {
+        value: {
+          storage: mockStorage
+        },
+        writable: true,
+        configurable: true
+      })
     })
   })
 })
