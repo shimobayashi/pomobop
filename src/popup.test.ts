@@ -18,11 +18,13 @@ describe('PomodoroTimer', () => {
     `
     
     timer = new PomodoroTimer()
+    vi.useFakeTimers()
   })
 
   afterEach(() => {
     // タイマーをクリーンアップ
     timer.pause()
+    vi.restoreAllTimers()
   })
 
   describe('初期化', () => {
@@ -95,6 +97,71 @@ describe('PomodoroTimer', () => {
       const initialTime = timer.getTimeLeft()
       timer.setTime(10)
       expect(timer.getTimeLeft()).toBe(initialTime)
+    })
+
+    it('1秒経過で時間が減る', () => {
+      timer.setTimeSeconds(10)
+      timer.start()
+      
+      vi.advanceTimersByTime(1000)
+      expect(timer.getTimeLeft()).toBe(9)
+    })
+
+    it('複数秒経過で時間が減る', () => {
+      timer.setTimeSeconds(10)
+      timer.start()
+      
+      vi.advanceTimersByTime(3000)
+      expect(timer.getTimeLeft()).toBe(7)
+    })
+  })
+
+  describe('タイマー完了', () => {
+    it('タイマーが0になると完了状態になる', () => {
+      timer.setTimeSeconds(2)
+      timer.start()
+      
+      // 2秒経過でタイマー完了
+      vi.advanceTimersByTime(2000)
+      
+      expect(timer.getTimeLeft()).toBe(0)
+      expect(timer.getIsRunning()).toBe(false)
+      
+      const display = document.getElementById('timerDisplay')
+      expect(display?.textContent).toBe('完了！')
+      expect(display?.style.color).toBe('rgb(39, 174, 96)') // #27ae60
+    })
+
+    it('完了後3秒でリセットされる', () => {
+      timer.setTimeSeconds(1)
+      timer.start()
+      
+      // 1秒経過でタイマー完了
+      vi.advanceTimersByTime(1000)
+      expect(timer.getTimeLeft()).toBe(0)
+      
+      const display = document.getElementById('timerDisplay')
+      expect(display?.textContent).toBe('完了！')
+      
+      // さらに3秒経過でリセット
+      vi.advanceTimersByTime(3000)
+      expect(timer.getTimeLeft()).toBe(25 * 60)
+      expect(display?.textContent).toBe('25:00')
+      expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
+    })
+
+    it('完了時にボタンが正しい状態になる', () => {
+      timer.setTimeSeconds(1)
+      timer.start()
+      
+      // 1秒経過でタイマー完了
+      vi.advanceTimersByTime(1000)
+      
+      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
+      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
+      
+      expect(startBtn.disabled).toBe(false)
+      expect(pauseBtn.disabled).toBe(true)
     })
   })
 })
