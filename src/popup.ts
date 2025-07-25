@@ -212,17 +212,8 @@ class PomodoroTimer {
   }
 }
 
-// テスト用にwindowオブジェクトに追加
-declare global {
-  interface Window {
-    PomodoroTimer: typeof PomodoroTimer;
-  }
-}
-
-// テスト環境でグローバルアクセス可能にする
-if (typeof window !== 'undefined') {
-  window.PomodoroTimer = PomodoroTimer;
-}
+// テスト用にグローバルアクセス可能にする
+(window as any).PomodoroTimer = PomodoroTimer;
 
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
