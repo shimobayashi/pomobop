@@ -17,6 +17,12 @@ Object.defineProperty(global, 'chrome', {
   writable: true
 });
 
+// windowオブジェクトのモック
+Object.defineProperty(global, 'window', {
+  value: global,
+  writable: true
+});
+
 describe('PomodoroTimer', () => {
   let timer: any
 
