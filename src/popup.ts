@@ -212,10 +212,8 @@ class PomodoroTimer {
   }
 }
 
-// テスト環境でのみクラスを公開
-if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
-  (globalThis as any).PomodoroTimer = PomodoroTimer;
-}
+// このexportはテスト時のみ有効（tsconfigでexcludeされるため）
+export { PomodoroTimer };
 
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
