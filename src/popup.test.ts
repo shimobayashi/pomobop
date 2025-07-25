@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import './popup' // グローバルスコープでクラスを読み込み
-
-// PomodoroTimerクラスをグローバルから取得
-declare global {
-  var PomodoroTimer: any;
-}
+import { PomodoroTimer } from './popup-for-test'
 
 // Chrome Storage APIのモック
 const mockStorage = {
@@ -23,9 +18,9 @@ Object.defineProperty(global, 'chrome', {
 });
 
 describe('PomodoroTimer', () => {
-  let timer: any
+  let timer: PomodoroTimer
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // HTMLをセットアップ
     document.body.innerHTML = `
       <div id="timerDisplay">25:00</div>
@@ -45,8 +40,9 @@ describe('PomodoroTimer', () => {
 
     vi.useFakeTimers()
     
-    // PomodoroTimerクラスを手動でインスタンス化
-    timer = new (global as any).PomodoroTimer()
+    timer = new PomodoroTimer()
+    // 初期化完了を待つ
+    await new Promise(resolve => setTimeout(resolve, 0))
   })
 
   afterEach(() => {
@@ -57,34 +53,26 @@ describe('PomodoroTimer', () => {
   })
 
   describe('初期化', () => {
-    it('デフォルトで25分に設定される', async () => {
-      // 非同期の初期化を待つ
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(25 * 60)
-        expect(timer.getIsRunning()).toBe(false)
-      })
+    it('デフォルトで25分に設定される', () => {
+      expect(timer.getTimeLeft()).toBe(25 * 60)
+      expect(timer.getIsRunning()).toBe(false)
     })
 
-    it('表示が正しく初期化される', async () => {
-      await vi.waitFor(() => {
-        const display = document.getElementById('timerDisplay')
-        expect(display?.textContent).toBe('25:00')
-      })
+    it('表示が正しく初期化される', () => {
+      const display = document.getElementById('timerDisplay')
+      expect(display?.textContent).toBe('25:00')
     })
   })
 
   describe('状態の永続化', () => {
     it('タイマー開始時に状態が保存される', async () => {
-      timer.start()
+      await timer.start()
       
-      // 状態保存が呼ばれるまで待つ
-      await vi.waitFor(() => {
-        expect(mockStorage.local.set).toHaveBeenCalledWith({
-          pomodoroState: expect.objectContaining({
-            timeLeft: 25 * 60,
-            isRunning: true,
-            lastSaveTime: expect.any(Number)
-          })
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          timeLeft: 25 * 60,
+          isRunning: true,
+          lastSaveTime: expect.any(Number)
         })
       })
     })
@@ -100,12 +88,11 @@ describe('PomodoroTimer', () => {
       })
 
       // 新しいタイマーインスタンスを作成（復元をテスト）
-      const newTimer = new (global as any).PomodoroTimer()
+      const newTimer = new PomodoroTimer()
+      await new Promise(resolve => setTimeout(resolve, 0)) // 非同期初期化を待つ
       
-      await vi.waitFor(() => {
-        expect(newTimer.getTimeLeft()).toBe(15 * 60)
-        expect(newTimer.getIsRunning()).toBe(false)
-      })
+      expect(newTimer.getTimeLeft()).toBe(15 * 60)
+      expect(newTimer.getIsRunning()).toBe(false)
     })
 
     it('実行中の状態が正しく復元される', async () => {
@@ -119,13 +106,12 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      const newTimer = new (global as any).PomodoroTimer()
+      const newTimer = new PomodoroTimer()
+      await new Promise(resolve => setTimeout(resolve, 0))
       
-      await vi.waitFor(() => {
-        // 5秒経過しているので、10 - 5 = 5秒になっているはず
-        expect(newTimer.getTimeLeft()).toBe(5)
-        expect(newTimer.getIsRunning()).toBe(true)
-      })
+      // 5秒経過しているので、10 - 5 = 5秒になっているはず
+      expect(newTimer.getTimeLeft()).toBe(5)
+      expect(newTimer.getIsRunning()).toBe(true)
     })
 
     it('時間切れの場合は完了状態になる', async () => {
@@ -139,15 +125,14 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      const newTimer = new (global as any).PomodoroTimer()
+      const newTimer = new PomodoroTimer()
+      await new Promise(resolve => setTimeout(resolve, 0))
       
-      await vi.waitFor(() => {
-        expect(newTimer.getTimeLeft()).toBe(0)
-        expect(newTimer.getIsRunning()).toBe(false)
-        
-        const display = document.getElementById('timerDisplay')
-        expect(display?.textContent).toBe('完了！')
-      })
+      expect(newTimer.getTimeLeft()).toBe(0)
+      expect(newTimer.getIsRunning()).toBe(false)
+      
+      const display = document.getElementById('timerDisplay')
+      expect(display?.textContent).toBe('完了！')
     })
 
     it('Chrome拡張環境でない場合は状態保存をスキップ', async () => {
@@ -155,10 +140,9 @@ describe('PomodoroTimer', () => {
       const originalChrome = (global as any).chrome
       delete (global as any).chrome
 
-      timer.start()
+      await timer.start()
       
       // 状態保存が呼ばれないことを確認
-      await new Promise(resolve => setTimeout(resolve, 100))
       expect(mockStorage.local.set).not.toHaveBeenCalled()
 
       // Chromeオブジェクトを復元
@@ -166,26 +150,22 @@ describe('PomodoroTimer', () => {
     })
   })
 
-  describe('基本機能（既存テスト）', () => {
+  describe('基本機能', () => {
     it('プリセット機能が動作する', async () => {
-      await vi.waitFor(() => {
-        timer.setTime(15)
-        expect(timer.getTimeLeft()).toBe(15 * 60)
-      })
+      await timer.setTime(15)
+      expect(timer.getTimeLeft()).toBe(15 * 60)
     })
 
     it('タイマーが正常に動作する', async () => {
-      await vi.waitFor(() => {
-        timer.setTimeSeconds(3)
-        timer.start()
-        
-        vi.advanceTimersByTime(1000)
-        expect(timer.getTimeLeft()).toBe(2)
-        
-        vi.advanceTimersByTime(2000)
-        expect(timer.getTimeLeft()).toBe(0)
-        expect(timer.getIsRunning()).toBe(false)
-      })
+      await timer.setTimeSeconds(3)
+      await timer.start()
+      
+      vi.advanceTimersByTime(1000)
+      expect(timer.getTimeLeft()).toBe(2)
+      
+      vi.advanceTimersByTime(2000)
+      expect(timer.getTimeLeft()).toBe(0)
+      expect(timer.getIsRunning()).toBe(false)
     })
   })
 })
