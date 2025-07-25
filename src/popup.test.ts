@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import './popup' // メインファイルを読み込み
+import { PomodoroTimer } from './popup'
 
 // Chrome Storage APIのモック
 const mockStorage = {
@@ -19,7 +19,7 @@ Object.defineProperty(global, 'chrome', {
 });
 
 describe('PomodoroTimer', () => {
-  let timer: any
+  let timer: PomodoroTimer
 
   beforeEach(() => {
     // HTMLをセットアップ
@@ -51,7 +51,7 @@ describe('PomodoroTimer', () => {
 
   describe('初期化', () => {
     it('デフォルトで25分に設定される', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(25 * 60)
         expect(timer.getIsRunning()).toBe(false)
@@ -59,7 +59,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('表示が正しく初期化される', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => {
         const display = document.getElementById('timerDisplay')
         expect(display?.textContent).toBe('25:00')
@@ -69,7 +69,7 @@ describe('PomodoroTimer', () => {
 
   describe('プリセット機能', () => {
     it('25分プリセットが動作する', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTime(25)
@@ -77,7 +77,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('15分プリセットが動作する', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTime(15)
@@ -85,7 +85,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('5分プリセットが動作する', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTime(5)
@@ -93,7 +93,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('1秒プリセットが動作する', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(1)
@@ -103,7 +103,7 @@ describe('PomodoroTimer', () => {
 
   describe('タイマー操作', () => {
     it('開始ボタンでタイマーが開始される', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.start()
@@ -116,7 +116,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('一時停止ボタンでタイマーが停止される', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.start()
@@ -130,7 +130,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('リセットボタンで25分に戻る', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTime(10)
@@ -142,7 +142,7 @@ describe('PomodoroTimer', () => {
 
   describe('タイマーのカウントダウン', () => {
     it('実行中はプリセット変更できない', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.start()
@@ -152,7 +152,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('1秒経過で時間が減る', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(10)
@@ -163,7 +163,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('複数秒経過で時間が減る', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(10)
@@ -176,7 +176,7 @@ describe('PomodoroTimer', () => {
 
   describe('タイマー完了', () => {
     it('タイマーが0になると完了状態になる', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(2)
@@ -197,7 +197,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('完了後3秒でリセットされる', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(1)
@@ -225,7 +225,7 @@ describe('PomodoroTimer', () => {
     })
 
     it('完了時にボタンが正しい状態になる', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTimeSeconds(1)
@@ -247,7 +247,7 @@ describe('PomodoroTimer', () => {
 
   describe('状態の永続化', () => {
     it('タイマー開始時に状態が保存される', async () => {
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.start()
@@ -270,7 +270,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(15 * 60)
@@ -289,7 +289,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(5)
@@ -308,7 +308,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(0)
@@ -327,7 +327,7 @@ describe('PomodoroTimer', () => {
         configurable: true
       })
 
-      timer = new (globalThis as any).PomodoroTimer()
+      timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
 
       await timer.start()
