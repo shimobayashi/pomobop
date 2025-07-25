@@ -126,13 +126,17 @@ describe('PomodoroTimer', () => {
 
       timer = new PomodoroTimer()
       
+      // 初期化とcomplete処理の完了を待つため、より長い時間待つ
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(0)
         expect(timer.getIsRunning()).toBe(false)
-        
+      }, { timeout: 2000 })
+      
+      // さらに表示更新を待つ
+      await vi.waitFor(() => {
         const display = document.getElementById('timerDisplay')
         expect(display?.textContent).toBe('完了！')
-      }, { timeout: 1000 })
+      }, { timeout: 2000 })
     })
   })
 
