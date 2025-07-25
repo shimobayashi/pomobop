@@ -1,0 +1,12 @@
+{
+  "name": "pomodoro-extension",
+  "version": "1.0.0",
+  "description": "A Chrome extension for Pomodoro timer",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
