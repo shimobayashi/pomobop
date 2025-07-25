@@ -6,7 +6,7 @@ interface TimerState {
   isCompleted?: boolean; // 完了状態フラグ
 }
 
-class PomodoroTimer {
+export class PomodoroTimer {
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
@@ -215,13 +215,3 @@ class PomodoroTimer {
 document.addEventListener('DOMContentLoaded', function() {
   new PomodoroTimer();
 });
-
-// テスト用の条件付きexport（実際のChrome拡張では実行されない）
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  (module as any).exports = { PomodoroTimer };
-} else if (typeof window !== 'undefined' && typeof (window as any).define === 'function') {
-  // AMD/RequireJS環境
-} else if (typeof globalThis !== 'undefined') {
-  // テスト環境用
-  (globalThis as any).PomodoroTimer = PomodoroTimer;
-}
