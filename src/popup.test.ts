@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { PomodoroTimer } from './popup-for-test'
+import './popup' // メインファイルを読み込み
 
 // Chrome Storage APIのモック
 const mockStorage = {
@@ -18,7 +18,7 @@ Object.defineProperty(global, 'chrome', {
 });
 
 describe('PomodoroTimer', () => {
-  let timer: PomodoroTimer
+  let timer: any
 
   beforeEach(() => {
     // HTMLをセットアップ
@@ -50,7 +50,7 @@ describe('PomodoroTimer', () => {
 
   describe('初期化', () => {
     it('デフォルトで25分に設定される', async () => {
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(25 * 60)
         expect(timer.getIsRunning()).toBe(false)
@@ -60,7 +60,7 @@ describe('PomodoroTimer', () => {
 
   describe('状態の永続化', () => {
     it('タイマー開始時に状態が保存される', async () => {
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.start()
@@ -83,7 +83,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(15 * 60)
@@ -102,7 +102,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(5)
@@ -121,7 +121,7 @@ describe('PomodoroTimer', () => {
         }
       })
 
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(0)
@@ -135,7 +135,7 @@ describe('PomodoroTimer', () => {
 
   describe('基本機能', () => {
     it('プリセット機能が動作する', async () => {
-      timer = new PomodoroTimer()
+      timer = new (global as any).PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
       await timer.setTime(15)
