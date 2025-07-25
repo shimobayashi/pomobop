@@ -11,6 +11,7 @@ class PomodoroTimer {
     this.preset25 = document.getElementById('preset25');
     this.preset15 = document.getElementById('preset15');
     this.preset5 = document.getElementById('preset5');
+    this.preset1sec = document.getElementById('preset1sec');
     
     this.initEventListeners();
     this.updateDisplay();
@@ -24,6 +25,7 @@ class PomodoroTimer {
     this.preset25.addEventListener('click', () => this.setTime(25));
     this.preset15.addEventListener('click', () => this.setTime(15));
     this.preset5.addEventListener('click', () => this.setTime(5));
+    this.preset1sec.addEventListener('click', () => this.setTimeSeconds(1));
   }
   
   start() {
@@ -65,6 +67,13 @@ class PomodoroTimer {
   setTime(minutes) {
     if (!this.isRunning) {
       this.timeLeft = minutes * 60;
+      this.updateDisplay();
+    }
+  }
+  
+  setTimeSeconds(seconds) {
+    if (!this.isRunning) {
+      this.timeLeft = seconds;
       this.updateDisplay();
     }
   }
