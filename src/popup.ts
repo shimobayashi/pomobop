@@ -193,6 +193,17 @@ export class PomodoroTimer {
     this.timerDisplay.textContent = "完了！";
     this.timerDisplay.style.color = "#27ae60";
     
+    // 通知ページを開く
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      try {
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL('notification.html')
+        });
+      } catch (error) {
+        console.error('Failed to open notification page:', error);
+      }
+    }
+    
     // 3秒後にリセット
     setTimeout(async () => {
       await this.reset();
