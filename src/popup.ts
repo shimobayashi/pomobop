@@ -70,6 +70,14 @@ export class PomodoroTimer {
       if (result.pomodoroState) {
         const savedState = result.pomodoroState;
         
+        // 完了状態の場合は表示のみ更新
+        if (savedState.isCompleted) {
+          this.state.isCompleted = true;
+          this.timerDisplay.textContent = "完了！";
+          this.timerDisplay.style.color = "#27ae60";
+          return;
+        }
+        
         // タイマーが実行中だった場合、経過時間を計算
         if (savedState.isRunning && savedState.lastSaveTime) {
           const elapsed = Math.floor((Date.now() - savedState.lastSaveTime) / 1000);
@@ -157,6 +165,7 @@ export class PomodoroTimer {
     this.state.timeLeft = 25 * 60;
     this.state.isCompleted = false;
     this.updateDisplay();
+    this.timerDisplay.style.color = "#e74c3c";
     await this.saveState();
   }
   
@@ -192,23 +201,7 @@ export class PomodoroTimer {
     this.state.isCompleted = true;
     this.timerDisplay.textContent = "完了！";
     this.timerDisplay.style.color = "#27ae60";
-    
-    // 通知ページを開く
-    if (typeof chrome !== 'undefined' && chrome.tabs) {
-      try {
-        await chrome.tabs.create({
-          url: chrome.runtime.getURL('notification.html')
-        });
-      } catch (error) {
-        console.error('Failed to open notification page:', error);
-      }
-    }
-    
-    // 3秒後にリセット
-    setTimeout(async () => {
-      await this.reset();
-      this.timerDisplay.style.color = "#e74c3c";
-    }, 3000);
+    await this.saveState();
   }
   
   private updateDisplay(): void {
