@@ -5,7 +5,7 @@ interface TimerState {
   isCompleted?: boolean;
 }
 
-class BackgroundTimer {
+export class BackgroundTimer {
   private readonly alarmName = 'pomodoroTimer';
 
   constructor() {
@@ -48,7 +48,7 @@ class BackgroundTimer {
     }
   }
 
-  private async startBackgroundTimer(timeLeft: number): Promise<void> {
+  public async startBackgroundTimer(timeLeft: number): Promise<void> {
     // 既存のアラームをクリア
     await chrome.alarms.clear(this.alarmName);
     
@@ -59,12 +59,12 @@ class BackgroundTimer {
     console.log(`Background timer started for ${timeLeft} seconds`);
   }
 
-  private async stopBackgroundTimer(): Promise<void> {
+  public async stopBackgroundTimer(): Promise<void> {
     await chrome.alarms.clear(this.alarmName);
     console.log('Background timer stopped');
   }
 
-  private async handleTimerComplete(): Promise<void> {
+  public async handleTimerComplete(): Promise<void> {
     console.log('Timer completed in background');
     
     // 状態を完了に更新
@@ -102,7 +102,7 @@ class BackgroundTimer {
     }, 3000);
   }
 
-  private async restoreTimer(): Promise<void> {
+  public async restoreTimer(): Promise<void> {
     const result = await chrome.storage.local.get('pomodoroState');
     if (result.pomodoroState && result.pomodoroState.isRunning) {
       const state: TimerState = result.pomodoroState;
@@ -120,4 +120,6 @@ class BackgroundTimer {
 }
 
 // バックグラウンドタイマーを初期化
-new BackgroundTimer();
+if (typeof window === 'undefined') {
+  new BackgroundTimer();
+}
