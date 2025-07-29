@@ -84,6 +84,7 @@ export class PomodoroTimer {
           if (this.state.timeLeft > 0) {
             this.resumeTimer();
           } else {
+            this.state.timeLeft = 0;
             await this.complete();
           }
         } else {
@@ -102,12 +103,15 @@ export class PomodoroTimer {
     
     this.state.intervalId = window.setInterval(async () => {
       this.state.timeLeft--;
-      this.updateDisplay();
-      await this.saveState();
       
       if (this.state.timeLeft <= 0) {
+        this.state.timeLeft = 0;
         await this.complete();
+        return;
       }
+      
+      this.updateDisplay();
+      await this.saveState();
     }, 1000);
   }
   
@@ -131,12 +135,15 @@ export class PomodoroTimer {
       
       this.state.intervalId = window.setInterval(async () => {
         this.state.timeLeft--;
-        this.updateDisplay();
-        await this.saveState();
         
         if (this.state.timeLeft <= 0) {
+          this.state.timeLeft = 0;
           await this.complete();
+          return;
         }
+        
+        this.updateDisplay();
+        await this.saveState();
       }, 1000);
 
       await this.saveState();
