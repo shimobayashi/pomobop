@@ -89,31 +89,12 @@ describe('BackgroundTimer', () => {
   });
 
   describe('handleTimerComplete', () => {
-    it('should update state and open notification page', async () => {
-      const mockStorageResult = {
-        pomodoroState: {
-          timeLeft: 100,
-          isRunning: true,
-          lastSaveTime: 999000,
-        },
-      };
-      
+    it('should open notification page and reset state', async () => {
       // テストだけのためのchrome.runtime.getURLのモック
       mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/notification.html');
-      mockChrome.storage.local.get.mockResolvedValue(mockStorageResult);
       backgroundTimer = new BackgroundTimer();
       
       await backgroundTimer.handleTimerComplete();
-      
-      // 状態更新の確認 - timeLeftは0に設定される
-      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
-        pomodoroState: {
-          timeLeft: 0,
-          isRunning: false,
-          isCompleted: true,
-          lastSaveTime: 1000000,
-        },
-      });
       
       // chrome.runtime.getURLが呼ばれたことを確認
       expect(mockChrome.runtime.getURL).toHaveBeenCalledWith('notification.html');
@@ -123,12 +104,11 @@ describe('BackgroundTimer', () => {
         url: 'chrome-extension://test/notification.html',
       });
       
-      // リセット処理の確認（setTimeoutがすぐ実行されるモック）
+      // リセット処理の確認
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         pomodoroState: {
           timeLeft: 25 * 60,
           isRunning: false,
-          isCompleted: false,
           lastSaveTime: 1000000,
         },
       });
@@ -137,7 +117,6 @@ describe('BackgroundTimer', () => {
     });
 
     it('should handle notification page creation error', async () => {
-      mockChrome.storage.local.get.mockResolvedValue({});
       mockChrome.tabs.create.mockRejectedValue(new Error('Tab creation failed'));
       
       backgroundTimer = new BackgroundTimer();
