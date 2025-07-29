@@ -207,8 +207,8 @@ export class PomodoroTimer {
     await this.saveState();
     
     // 3秒後に自動リセット
-    setTimeout(async () => {
-      await this.reset();
+    setTimeout(() => {
+      this.reset();
     }, 3000);
   }
   
