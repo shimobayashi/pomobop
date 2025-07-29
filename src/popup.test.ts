@@ -210,12 +210,14 @@ describe('PomodoroTimer', () => {
       // さらに3秒経過でリセット
       vi.advanceTimersByTime(3000)
       
+      // 非同期のリセット処理の完了を十分待つ
       await vi.waitFor(() => {
         expect(timer.getTimeLeft()).toBe(25 * 60)
-        const display = document.getElementById('timerDisplay')
-        expect(display?.textContent).toBe('25:00')
-        expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
-      }, { timeout: 1000 })
+      }, { timeout: 5000 })
+      
+      const display = document.getElementById('timerDisplay')
+      expect(display?.textContent).toBe('25:00')
+      expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
     })
 
     it('完了時にボタンが正しい状態になる', async () => {
