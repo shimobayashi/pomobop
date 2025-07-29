@@ -3,7 +3,6 @@ interface TimerState {
   isRunning: boolean;
   intervalId: number | null;
   lastSaveTime?: number; // 最後に保存した時刻
-  isCompleted?: boolean; // 完了状態フラグ
 }
 
 export class PomodoroTimer {
@@ -21,8 +20,7 @@ export class PomodoroTimer {
     this.state = {
       timeLeft: 25 * 60, // 25分をデフォルト
       isRunning: false,
-      intervalId: null,
-      isCompleted: false
+      intervalId: null
     };
     
     this.timerDisplay = this.getElementById('timerDisplay');
@@ -36,10 +34,7 @@ export class PomodoroTimer {
     
     this.initEventListeners();
     this.restoreState().then(() => {
-      // 完了状態でない場合のみ表示を更新
-      if (!this.state.isCompleted) {
-        this.updateDisplay();
-      }
+      this.updateDisplay();
     });
   }
 
@@ -55,8 +50,7 @@ export class PomodoroTimer {
     const stateToSave = {
       timeLeft: this.state.timeLeft,
       isRunning: this.state.isRunning,
-      lastSaveTime: Date.now(),
-      isCompleted: this.state.isCompleted
+      lastSaveTime: Date.now()
     };
     
     if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -70,14 +64,6 @@ export class PomodoroTimer {
       if (result.pomodoroState) {
         const savedState = result.pomodoroState;
         
-        // 完了状態の場合は表示のみ更新
-        if (savedState.isCompleted) {
-          this.state.isCompleted = true;
-          this.timerDisplay.textContent = "完了！";
-          this.timerDisplay.style.color = "#27ae60";
-          return;
-        }
-        
         // タイマーが実行中だった場合、経過時間を計算
         if (savedState.isRunning && savedState.lastSaveTime) {
           const elapsed = Math.floor((Date.now() - savedState.lastSaveTime) / 1000);
@@ -86,12 +72,12 @@ export class PomodoroTimer {
           if (this.state.timeLeft > 0) {
             this.resumeTimer();
           } else {
+            this.state.timeLeft = 0;
             await this.complete();
           }
         } else {
           // 停止中だった場合はそのまま復元
           this.state.timeLeft = savedState.timeLeft;
-          this.state.isCompleted = savedState.isCompleted || false;
         }
       }
     }
@@ -104,12 +90,15 @@ export class PomodoroTimer {
     
     this.state.intervalId = window.setInterval(async () => {
       this.state.timeLeft--;
-      this.updateDisplay();
-      await this.saveState();
       
       if (this.state.timeLeft <= 0) {
+        this.state.timeLeft = 0;
         await this.complete();
+        return;
       }
+      
+      this.updateDisplay();
+      await this.saveState();
     }, 1000);
   }
   
@@ -127,18 +116,20 @@ export class PomodoroTimer {
   public async start(): Promise<void> {
     if (!this.state.isRunning) {
       this.state.isRunning = true;
-      this.state.isCompleted = false;
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       
       this.state.intervalId = window.setInterval(async () => {
         this.state.timeLeft--;
-        this.updateDisplay();
-        await this.saveState();
         
         if (this.state.timeLeft <= 0) {
+          this.state.timeLeft = 0;
           await this.complete();
+          return;
         }
+        
+        this.updateDisplay();
+        await this.saveState();
       }, 1000);
 
       await this.saveState();
@@ -163,7 +154,6 @@ export class PomodoroTimer {
   public async reset(): Promise<void> {
     await this.pause();
     this.state.timeLeft = 25 * 60;
-    this.state.isCompleted = false;
     this.updateDisplay();
     this.timerDisplay.style.color = "#e74c3c";
     await this.saveState();
@@ -172,7 +162,6 @@ export class PomodoroTimer {
   public async setTime(minutes: number): Promise<void> {
     if (!this.state.isRunning) {
       this.state.timeLeft = minutes * 60;
-      this.state.isCompleted = false;
       this.updateDisplay();
       await this.saveState();
     }
@@ -181,7 +170,6 @@ export class PomodoroTimer {
   public async setTimeSeconds(seconds: number): Promise<void> {
     if (!this.state.isRunning) {
       this.state.timeLeft = seconds;
-      this.state.isCompleted = false;
       this.updateDisplay();
       await this.saveState();
     }
@@ -198,23 +186,12 @@ export class PomodoroTimer {
   
   private async complete(): Promise<void> {
     await this.pause();
-    this.state.isCompleted = true;
-    this.timerDisplay.textContent = "完了！";
-    this.timerDisplay.style.color = "#27ae60";
-    await this.saveState();
     
-    // 3秒後に自動リセット
-    setTimeout(async () => {
-      await this.reset();
-    }, 3000);
+    // 即座にリセット
+    await this.reset();
   }
   
   private updateDisplay(): void {
-    // 完了状態の場合は表示を更新しない
-    if (this.state.isCompleted) {
-      return;
-    }
-    
     const minutes = Math.floor(this.state.timeLeft / 60);
     const seconds = this.state.timeLeft % 60;
     this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;

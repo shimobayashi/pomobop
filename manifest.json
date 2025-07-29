@@ -8,7 +8,8 @@
     "default_title": "Pomodoro Timer"
   },
   "background": {
-    "service_worker": "dist/background.js"
+    "service_worker": "dist/background.js",
+    "type": "module"
   },
   "permissions": [
     "storage",
