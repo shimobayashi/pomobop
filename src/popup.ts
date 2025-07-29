@@ -1,13 +1,14 @@
 interface TimerState {
   timeLeft: number;
   isRunning: boolean;
-  intervalId: number | null;
+  intervalId?: number | null; // オプショナルに変更
   lastSaveTime?: number; // 最後に保存した時刻
   isCompleted?: boolean; // 完了状態フラグ
 }
 
 class PomodoroTimer {
   private state: TimerState;
+  private intervalId: number | null = null; // インスタンス変数として分離
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
   private readonly pauseBtn: HTMLButtonElement;
@@ -21,7 +22,6 @@ class PomodoroTimer {
     this.state = {
       timeLeft: 25 * 60, // 25分をデフォルト
       isRunning: false,
-      intervalId: null,
       isCompleted: false
     };
     
@@ -101,7 +101,7 @@ class PomodoroTimer {
     this.startBtn.disabled = true;
     this.pauseBtn.disabled = false;
     
-    this.state.intervalId = window.setInterval(async () => {
+    this.intervalId = window.setInterval(async () => {
       this.state.timeLeft--;
       
       if (this.state.timeLeft <= 0) {
@@ -133,7 +133,7 @@ class PomodoroTimer {
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       
-      this.state.intervalId = window.setInterval(async () => {
+      this.intervalId = window.setInterval(async () => {
         this.state.timeLeft--;
         
         if (this.state.timeLeft <= 0) {
@@ -156,9 +156,9 @@ class PomodoroTimer {
       this.startBtn.disabled = false;
       this.pauseBtn.disabled = true;
       
-      if (this.state.intervalId) {
-        clearInterval(this.state.intervalId);
-        this.state.intervalId = null;
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
       }
 
       await this.saveState();
