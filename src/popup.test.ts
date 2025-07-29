@@ -175,7 +175,7 @@ describe('PomodoroTimer', () => {
   })
 
   describe('タイマー完了', () => {
-    it('タイマーが0になると停止状態になる', async () => {
+    it('タイマーが0になると即座にリセットされる', async () => {
       timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
@@ -187,37 +187,12 @@ describe('PomodoroTimer', () => {
       
       // 非同期complete処理の完了を待つ
       await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(0)
+        expect(timer.getTimeLeft()).toBe(25 * 60) // 即座にリセット
         expect(timer.getIsRunning()).toBe(false)
+        
+        const display = document.getElementById('timerDisplay')
+        expect(display?.textContent).toBe('25:00')
       }, { timeout: 1000 })
-    })
-
-    it('完了後3秒でリセットされる', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(1)
-      await timer.start()
-      
-      // 1秒経過でタイマー完了
-      vi.advanceTimersByTime(1000)
-      
-      // 完了状態を待つ
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(0)
-      }, { timeout: 1000 })
-      
-      // さらに3秒経過でリセット
-      vi.advanceTimersByTime(3000)
-      
-      // 非同期のリセット処理の完了を十分待つ
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(25 * 60)
-      }, { timeout: 5000 })
-      
-      const display = document.getElementById('timerDisplay')
-      expect(display?.textContent).toBe('25:00')
-      expect(display?.style.color).toBe('rgb(231, 76, 60)') // #e74c3c
     })
 
     it('完了時にボタンが正しい状態になる', async () => {
@@ -293,7 +268,7 @@ describe('PomodoroTimer', () => {
       }, { timeout: 1000 })
     })
 
-    it('時間切れの場合は完了状態になる', async () => {
+    it('時間切れの場合は即座にリセットされる', async () => {
       const saveTime = Date.now() - 15000
       
       mockStorage.local.get.mockResolvedValue({
@@ -307,7 +282,7 @@ describe('PomodoroTimer', () => {
       timer = new PomodoroTimer()
       
       await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(0)
+        expect(timer.getTimeLeft()).toBe(25 * 60) // 即座にリセット
         expect(timer.getIsRunning()).toBe(false)
       }, { timeout: 1000 })
     })
