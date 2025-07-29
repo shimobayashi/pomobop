@@ -39,6 +39,9 @@ describe('BackgroundTimer', () => {
     // すべてのモックをリセット
     vi.clearAllMocks();
     
+    // デフォルトでchromeストレージは空を返すようにセット
+    mockChrome.storage.local.get.mockResolvedValue({});
+    
     // コンソールをモック
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
