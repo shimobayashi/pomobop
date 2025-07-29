@@ -7,7 +7,12 @@
     "default_popup": "popup.html",
     "default_title": "Pomodoro Timer"
   },
+  "background": {
+    "service_worker": "dist/background.js"
+  },
   "permissions": [
-    "storage"
+    "storage",
+    "tabs",
+    "alarms"
   ]
 }
