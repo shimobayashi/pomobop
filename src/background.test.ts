@@ -42,6 +42,9 @@ describe('BackgroundTimer', () => {
     // デフォルトでchromeストレージは空を返すようにセット
     mockChrome.storage.local.get.mockResolvedValue({});
     
+    // chrome.runtime.getURLのモックを明示的に設定し直す
+    mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/notification.html');
+    
     // コンソールをモック
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -95,6 +98,8 @@ describe('BackgroundTimer', () => {
         },
       };
       
+      // テストだけのためのchrome.runtime.getURLのモック
+      mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/notification.html');
       mockChrome.storage.local.get.mockResolvedValue(mockStorageResult);
       backgroundTimer = new BackgroundTimer();
       
@@ -109,6 +114,9 @@ describe('BackgroundTimer', () => {
           lastSaveTime: 1000000,
         },
       });
+      
+      // chrome.runtime.getURLが呼ばれたことを確認
+      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith('notification.html');
       
       // 通知ページ開始の確認
       expect(mockChrome.tabs.create).toHaveBeenCalledWith({
