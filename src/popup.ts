@@ -202,6 +202,11 @@ export class PomodoroTimer {
     this.timerDisplay.textContent = "完了！";
     this.timerDisplay.style.color = "#27ae60";
     await this.saveState();
+    
+    // 3秒後に自動リセット
+    setTimeout(async () => {
+      await this.reset();
+    }, 3000);
   }
   
   private updateDisplay(): void {
