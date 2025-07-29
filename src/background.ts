@@ -90,16 +90,14 @@ export class BackgroundTimer {
       console.error('Failed to open notification page:', error);
     }
 
-    // 3秒後にリセット
-    setTimeout(async () => {
-      const resetState: TimerState = {
-        timeLeft: 25 * 60,
-        isRunning: false,
-        isCompleted: false,
-        lastSaveTime: Date.now()
-      };
-      await chrome.storage.local.set({ pomodoroState: resetState });
-    }, 3000);
+    // 即座にリセット
+    const resetState: TimerState = {
+      timeLeft: 25 * 60,
+      isRunning: false,
+      isCompleted: false,
+      lastSaveTime: Date.now()
+    };
+    await chrome.storage.local.set({ pomodoroState: resetState });
   }
 
   public async restoreTimer(): Promise<void> {
