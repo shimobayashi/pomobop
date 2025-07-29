@@ -2,10 +2,10 @@ interface TimerState {
   timeLeft: number;
   isRunning: boolean;
   lastSaveTime?: number;
-  isCompleted?: boolean;
+  intervalId?: number | null; // background.tsでは使用しないためオプショナル
 }
 
-export class BackgroundTimer {
+class BackgroundTimer {
   private readonly alarmName = 'pomodoroTimer';
 
   constructor() {
@@ -67,20 +67,6 @@ export class BackgroundTimer {
   public async handleTimerComplete(): Promise<void> {
     console.log('Timer completed in background');
     
-    // 状態を完了に更新
-    const result = await chrome.storage.local.get('pomodoroState');
-    if (result.pomodoroState) {
-      const updatedState: TimerState = {
-        ...result.pomodoroState,
-        timeLeft: 0,
-        isRunning: false,
-        isCompleted: true,
-        lastSaveTime: Date.now()
-      };
-      
-      await chrome.storage.local.set({ pomodoroState: updatedState });
-    }
-
     // 通知ページを開く
     try {
       await chrome.tabs.create({
@@ -94,7 +80,6 @@ export class BackgroundTimer {
     const resetState: TimerState = {
       timeLeft: 25 * 60,
       isRunning: false,
-      isCompleted: false,
       lastSaveTime: Date.now()
     };
     await chrome.storage.local.set({ pomodoroState: resetState });
@@ -118,6 +103,4 @@ export class BackgroundTimer {
 }
 
 // バックグラウンドタイマーを初期化
-if (typeof window === 'undefined') {
-  new BackgroundTimer();
-}
+new BackgroundTimer();
