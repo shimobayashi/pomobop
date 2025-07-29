@@ -3,6 +3,7 @@ interface TimerState {
   isRunning: boolean;
   lastSaveTime?: number;
   isCompleted?: boolean;
+  intervalId?: number | null; // background.tsでは使用しないためオプショナル
 }
 
 class BackgroundTimer {
