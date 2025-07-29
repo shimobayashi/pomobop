@@ -6,7 +6,7 @@ interface TimerState {
   isCompleted?: boolean; // 完了状態フラグ
 }
 
-export class PomodoroTimer {
+class PomodoroTimer {
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
