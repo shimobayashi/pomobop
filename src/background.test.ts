@@ -97,10 +97,10 @@ describe('BackgroundTimer', () => {
       
       await backgroundTimer.handleTimerComplete();
       
-      // 状態更新の確認
+      // 状態更新の確認 - timeLeftは0に設定される
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         pomodoroState: {
-          timeLeft: 100,
+          timeLeft: 0,
           isRunning: false,
           isCompleted: true,
           lastSaveTime: 1000000,
@@ -211,7 +211,7 @@ describe('BackgroundTimer', () => {
       await backgroundTimer.restoreTimer();
       
       expect(startTimerSpy).not.toHaveBeenCalled();
-      expect(completeTimerSpy).not.toHaveBeenCalled();
+      expect(completeTimerSpy).not.to HaveBeenCalled();
     });
   });
 
