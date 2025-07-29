@@ -1,19 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-
-// PomodoroTimerクラスをグローバルスコープで利用可能にするためのダミー実装
-// 実際のテストでは、popup.tsをインポートしてグローバルに定義されたクラスを使用
-declare global {
-  class PomodoroTimer {
-    constructor();
-    start(): Promise<void>;
-    pause(): Promise<void>;
-    reset(): Promise<void>;
-    setTime(minutes: number): Promise<void>;
-    setTimeSeconds(seconds: number): Promise<void>;
-    getTimeLeft(): number;
-    getIsRunning(): boolean;
-  }
-}
+import { PomodoroTimer } from './popup'
 
 // Chrome Storage APIのモック
 const mockStorage = {
@@ -31,9 +17,6 @@ Object.defineProperty(global, 'chrome', {
   writable: true,
   configurable: true
 });
-
-// popup.tsをインポートしてグローバルにPomodoroTimerクラスを定義
-import '../src/popup'
 
 describe('PomodoroTimer', () => {
   let timer: PomodoroTimer
