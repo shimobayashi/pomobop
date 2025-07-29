@@ -211,7 +211,7 @@ describe('BackgroundTimer', () => {
       await backgroundTimer.restoreTimer();
       
       expect(startTimerSpy).not.toHaveBeenCalled();
-      expect(completeTimerSpy).not.to HaveBeenCalled();
+      expect(completeTimerSpy).not.toHaveBeenCalled();
     });
   });
 
