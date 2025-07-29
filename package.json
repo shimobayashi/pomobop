@@ -5,8 +5,8 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "vitest",
-    "test:run": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
