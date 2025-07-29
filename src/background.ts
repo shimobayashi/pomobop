@@ -5,7 +5,7 @@ interface TimerState {
   isCompleted?: boolean;
 }
 
-export class BackgroundTimer {
+class BackgroundTimer {
   private readonly alarmName = 'pomodoroTimer';
 
   constructor() {
@@ -118,6 +118,4 @@ export class BackgroundTimer {
 }
 
 // バックグラウンドタイマーを初期化
-if (typeof window === 'undefined') {
-  new BackgroundTimer();
-}
+new BackgroundTimer();
