@@ -178,10 +178,7 @@ export class PomodoroTimer {
     await this.pause();
     
     // 25分にリセット
-    this.state.timeLeft = 25 * 60;
-    this.updateDisplay();
-    this.timerDisplay.style.color = "#e74c3c";
-    await this.saveState();
+    await this.setTime(25);
   }
   
   private updateDisplay(): void {
