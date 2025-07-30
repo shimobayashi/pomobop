@@ -10,7 +10,6 @@ export class PomodoroTimer {
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
   private readonly pauseBtn: HTMLButtonElement;
-  private readonly resetBtn: HTMLButtonElement;
   private readonly preset25: HTMLButtonElement;
   private readonly preset15: HTMLButtonElement;
   private readonly preset5: HTMLButtonElement;
@@ -26,7 +25,6 @@ export class PomodoroTimer {
     this.timerDisplay = this.getElementById('timerDisplay');
     this.startBtn = this.getElementById('startBtn') as HTMLButtonElement;
     this.pauseBtn = this.getElementById('pauseBtn') as HTMLButtonElement;
-    this.resetBtn = this.getElementById('resetBtn') as HTMLButtonElement;
     this.preset25 = this.getElementById('preset25') as HTMLButtonElement;
     this.preset15 = this.getElementById('preset15') as HTMLButtonElement;
     this.preset5 = this.getElementById('preset5') as HTMLButtonElement;
@@ -105,7 +103,6 @@ export class PomodoroTimer {
   private initEventListeners(): void {
     this.startBtn.addEventListener('click', () => this.start());
     this.pauseBtn.addEventListener('click', () => this.pause());
-    this.resetBtn.addEventListener('click', () => this.reset());
     
     this.preset25.addEventListener('click', () => this.setTime(25));
     this.preset15.addEventListener('click', () => this.setTime(15));
@@ -151,18 +148,11 @@ export class PomodoroTimer {
     }
   }
   
-  public async reset(): Promise<void> {
-    await this.pause();
-    this.state.timeLeft = 25 * 60;
-    this.updateDisplay();
-    this.timerDisplay.style.color = "#e74c3c";
-    await this.saveState();
-  }
-  
   public async setTime(minutes: number): Promise<void> {
     if (!this.state.isRunning) {
       this.state.timeLeft = minutes * 60;
       this.updateDisplay();
+      this.timerDisplay.style.color = "#e74c3c";
       await this.saveState();
     }
   }
@@ -187,8 +177,8 @@ export class PomodoroTimer {
   private async complete(): Promise<void> {
     await this.pause();
     
-    // 即座にリセット
-    await this.reset();
+    // 25分にリセット
+    await this.setTime(25);
   }
   
   private updateDisplay(): void {
