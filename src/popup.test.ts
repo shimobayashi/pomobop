@@ -27,7 +27,6 @@ describe('PomodoroTimer', () => {
       <div id="timerDisplay">25:00</div>
       <button id="startBtn">開始</button>
       <button id="pauseBtn" disabled>一時停止</button>
-      <button id="resetBtn">リセット</button>
       <button id="preset25">25分</button>
       <button id="preset15">15分</button>
       <button id="preset5">5分</button>
@@ -127,16 +126,6 @@ describe('PomodoroTimer', () => {
       const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
       expect(startBtn.disabled).toBe(false)
       expect(pauseBtn.disabled).toBe(true)
-    })
-
-    it('リセットボタンで25分に戻る', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTime(10)
-      await timer.reset()
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-      expect(timer.getIsRunning()).toBe(false)
     })
   })
 
