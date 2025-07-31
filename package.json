@@ -9,9 +9,9 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "vitest": "^2.0.0",
+    "@types/chrome": "^0.0.268",
     "jsdom": "^24.0.0",
-    "@types/chrome": "^0.0.268"
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
   }
 }
