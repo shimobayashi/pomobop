@@ -32,9 +32,10 @@ npm run test:watch
 
 ### 状態管理
 
-両クラスが共通の`TimerState`インターフェースを使用して`chrome.storage.local`で状態を共有:
+2つのインターフェースで状態を管理：
 
 ```typescript
+// メモリ上の内部状態（intervalId含む）
 interface TimerState {
   timeLeft: number;
   isRunning: boolean;
@@ -42,12 +43,15 @@ interface TimerState {
   lastSaveTime?: number;
 }
 
+// chrome.storage.localに保存される状態
 interface StoredState {
   timeLeft: number;
   isRunning: boolean;
   lastSaveTime: number;
 }
 ```
+
+両クラスが`chrome.storage.local`で`StoredState`を共有し、状態を同期します。
 
 ### PomodoroTimerクラス設計
 
