@@ -2,7 +2,13 @@ interface TimerState {
   timeLeft: number;
   isRunning: boolean;
   intervalId: number | null;
-  lastSaveTime?: number; // 最後に保存した時刻
+  lastSaveTime?: number;
+}
+
+interface StoredState {
+  timeLeft: number;
+  isRunning: boolean;
+  lastSaveTime: number;
 }
 
 export class PomodoroTimer {
@@ -10,7 +16,7 @@ export class PomodoroTimer {
   private static readonly TIMER_INTERVAL_MS = 1000;
 
   private state: TimerState;
-  private readonly timerDisplay: HTMLElement;
+  private readonly timerDisplay: HTMLDivElement;
   private readonly startBtn: HTMLButtonElement;
   private readonly pauseBtn: HTMLButtonElement;
   private readonly preset25: HTMLButtonElement;
@@ -20,18 +26,18 @@ export class PomodoroTimer {
 
   constructor() {
     this.state = {
-      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60, // デフォルト値
+      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60,
       isRunning: false,
       intervalId: null
     };
     
-    this.timerDisplay = this.getElementById('timerDisplay');
-    this.startBtn = this.getElementById('startBtn') as HTMLButtonElement;
-    this.pauseBtn = this.getElementById('pauseBtn') as HTMLButtonElement;
-    this.preset25 = this.getElementById('preset25') as HTMLButtonElement;
-    this.preset15 = this.getElementById('preset15') as HTMLButtonElement;
-    this.preset5 = this.getElementById('preset5') as HTMLButtonElement;
-    this.preset1sec = this.getElementById('preset1sec') as HTMLButtonElement;
+    this.timerDisplay = this.getElementById<HTMLDivElement>('timerDisplay');
+    this.startBtn = this.getElementById<HTMLButtonElement>('startBtn');
+    this.pauseBtn = this.getElementById<HTMLButtonElement>('pauseBtn');
+    this.preset25 = this.getElementById<HTMLButtonElement>('preset25');
+    this.preset15 = this.getElementById<HTMLButtonElement>('preset15');
+    this.preset5 = this.getElementById<HTMLButtonElement>('preset5');
+    this.preset1sec = this.getElementById<HTMLButtonElement>('preset1sec');
     
     this.initEventListeners();
     this.restoreState().then(() => {
@@ -39,8 +45,8 @@ export class PomodoroTimer {
     });
   }
 
-  private getElementById(id: string): HTMLElement {
-    const element = document.getElementById(id);
+  private getElementById<T extends HTMLElement>(id: string): T {
+    const element = document.getElementById(id) as T | null;
     if (!element) {
       throw new Error(`Element with id "${id}" not found`);
     }
@@ -48,23 +54,19 @@ export class PomodoroTimer {
   }
 
   private async saveState(): Promise<void> {
-    const stateToSave = {
+    const stateToSave: StoredState = {
       timeLeft: this.state.timeLeft,
       isRunning: this.state.isRunning,
       lastSaveTime: Date.now()
     };
     
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      await chrome.storage.local.set({ pomodoroState: stateToSave });
-    }
+    await chrome.storage.local.set({ pomodoroState: stateToSave });
   }
 
-  private async loadStateFromStorage(): Promise<TimerState | null> {
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      const result = await chrome.storage.local.get('pomodoroState');
-      return result.pomodoroState || null;
-    }
-    return null;
+  private async loadStateFromStorage(): Promise<StoredState | null> {
+    const result = await chrome.storage.local.get('pomodoroState');
+    const savedState = result.pomodoroState as StoredState | undefined;
+    return savedState || null;
   }
 
   private calculateElapsedTime(lastSaveTime: number): number {
@@ -91,20 +93,18 @@ export class PomodoroTimer {
     this.pauseBtn.disabled = !this.state.isRunning;
   }
 
-  private async applyRestoredState(savedState: TimerState): Promise<void> {
-    // タイマーが実行中だった場合、経過時間を計算
+  private async applyRestoredState(savedState: StoredState): Promise<void> {
     if (savedState.isRunning && savedState.lastSaveTime) {
       const elapsed = this.calculateElapsedTime(savedState.lastSaveTime);
       this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
       
       if (this.state.timeLeft > 0) {
-        this.resumeTimer();
+        await this.start();
       } else {
         this.state.timeLeft = 0;
         await this.complete();
       }
     } else {
-      // 停止中だった場合はそのまま復元
       this.state.timeLeft = savedState.timeLeft;
     }
   }
@@ -114,12 +114,6 @@ export class PomodoroTimer {
     if (savedState) {
       await this.applyRestoredState(savedState);
     }
-  }
-
-  private resumeTimer(): void {
-    this.state.isRunning = true;
-    this.updateButtonStates();
-    this.state.intervalId = this.createTimerInterval();
   }
   
   private initEventListeners(): void {
@@ -171,7 +165,6 @@ export class PomodoroTimer {
     }
   }
 
-  // テスト用のgetters
   public getTimeLeft(): number {
     return this.state.timeLeft;
   }
@@ -182,8 +175,6 @@ export class PomodoroTimer {
   
   private async complete(): Promise<void> {
     await this.pause();
-    
-    // デフォルト値にリセット
     await this.setTime(PomodoroTimer.DEFAULT_MINUTES);
   }
   
