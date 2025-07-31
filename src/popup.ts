@@ -24,6 +24,8 @@ export class PomodoroTimer {
   private readonly preset5: HTMLButtonElement;
   private readonly preset1sec: HTMLButtonElement;
 
+  // === 初期化フロー ===
+  
   constructor() {
     this.state = {
       timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60,
@@ -53,44 +55,29 @@ export class PomodoroTimer {
     return element;
   }
 
-  private async saveState(): Promise<void> {
-    const stateToSave: StoredState = {
-      timeLeft: this.state.timeLeft,
-      isRunning: this.state.isRunning,
-      lastSaveTime: Date.now()
-    };
+  private initEventListeners(): void {
+    this.startBtn.addEventListener('click', () => this.start());
+    this.pauseBtn.addEventListener('click', () => this.pause());
     
-    await chrome.storage.local.set({ pomodoroState: stateToSave });
+    this.preset25.addEventListener('click', () => this.setTimeSeconds(25 * 60));
+    this.preset15.addEventListener('click', () => this.setTimeSeconds(15 * 60));
+    this.preset5.addEventListener('click', () => this.setTimeSeconds(5 * 60));
+    this.preset1sec.addEventListener('click', () => this.setTimeSeconds(1));
+  }
+
+  // === 状態復元フロー ===
+
+  private async restoreState(): Promise<void> {
+    const savedState = await this.loadStateFromStorage();
+    if (savedState) {
+      await this.applyRestoredState(savedState);
+    }
   }
 
   private async loadStateFromStorage(): Promise<StoredState | null> {
     const result = await chrome.storage.local.get('pomodoroState');
     const savedState = result.pomodoroState as StoredState | undefined;
     return savedState || null;
-  }
-
-  private calculateElapsedTime(lastSaveTime: number): number {
-    return Math.floor((Date.now() - lastSaveTime) / 1000);
-  }
-
-  private createTimerInterval(): number {
-    return window.setInterval(async () => {
-      this.state.timeLeft--;
-      
-      if (this.state.timeLeft <= 0) {
-        this.state.timeLeft = 0;
-        await this.complete();
-        return;
-      }
-      
-      this.updateDisplay();
-      await this.saveState();
-    }, PomodoroTimer.TIMER_INTERVAL_MS);
-  }
-
-  private updateButtonStates(): void {
-    this.startBtn.disabled = this.state.isRunning;
-    this.pauseBtn.disabled = !this.state.isRunning;
   }
 
   private async applyRestoredState(savedState: StoredState): Promise<void> {
@@ -109,22 +96,11 @@ export class PomodoroTimer {
     }
   }
 
-  private async restoreState(): Promise<void> {
-    const savedState = await this.loadStateFromStorage();
-    if (savedState) {
-      await this.applyRestoredState(savedState);
-    }
+  private calculateElapsedTime(lastSaveTime: number): number {
+    return Math.floor((Date.now() - lastSaveTime) / 1000);
   }
-  
-  private initEventListeners(): void {
-    this.startBtn.addEventListener('click', () => this.start());
-    this.pauseBtn.addEventListener('click', () => this.pause());
-    
-    this.preset25.addEventListener('click', () => this.setTimeSeconds(25 * 60));
-    this.preset15.addEventListener('click', () => this.setTimeSeconds(15 * 60));
-    this.preset5.addEventListener('click', () => this.setTimeSeconds(5 * 60));
-    this.preset1sec.addEventListener('click', () => this.setTimeSeconds(1));
-  }
+
+  // === ユーザー操作API ===
   
   public async start(): Promise<void> {
     if (!this.state.isRunning) {
@@ -157,23 +133,61 @@ export class PomodoroTimer {
     }
   }
 
+  // === タイマー実行フロー ===
+
+  private createTimerInterval(): number {
+    return window.setInterval(async () => {
+      this.state.timeLeft--;
+      
+      if (this.state.timeLeft <= 0) {
+        this.state.timeLeft = 0;
+        await this.complete();
+        return;
+      }
+      
+      this.updateDisplay();
+      await this.saveState();
+    }, PomodoroTimer.TIMER_INTERVAL_MS);
+  }
+
+  private async complete(): Promise<void> {
+    await this.pause();
+    await this.setTimeSeconds(PomodoroTimer.DEFAULT_MINUTES * 60);
+  }
+
+  // === UI更新 ===
+
+  private updateDisplay(): void {
+    const minutes = Math.floor(this.state.timeLeft / 60);
+    const seconds = this.state.timeLeft % 60;
+    this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  private updateButtonStates(): void {
+    this.startBtn.disabled = this.state.isRunning;
+    this.pauseBtn.disabled = !this.state.isRunning;
+  }
+
+  // === 状態永続化 ===
+
+  private async saveState(): Promise<void> {
+    const stateToSave: StoredState = {
+      timeLeft: this.state.timeLeft,
+      isRunning: this.state.isRunning,
+      lastSaveTime: Date.now()
+    };
+    
+    await chrome.storage.local.set({ pomodoroState: stateToSave });
+  }
+
+  // === 外部参照API ===
+
   public getTimeLeft(): number {
     return this.state.timeLeft;
   }
   
   public getIsRunning(): boolean {
     return this.state.isRunning;
-  }
-  
-  private async complete(): Promise<void> {
-    await this.pause();
-    await this.setTimeSeconds(PomodoroTimer.DEFAULT_MINUTES * 60);
-  }
-  
-  private updateDisplay(): void {
-    const minutes = Math.floor(this.state.timeLeft / 60);
-    const seconds = this.state.timeLeft % 60;
-    this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 }
 
