@@ -6,6 +6,9 @@ interface TimerState {
 }
 
 export class PomodoroTimer {
+  private static readonly DEFAULT_MINUTES = 25;
+  private static readonly TIMER_INTERVAL_MS = 1000;
+
   private state: TimerState;
   private readonly timerDisplay: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
@@ -17,7 +20,7 @@ export class PomodoroTimer {
 
   constructor() {
     this.state = {
-      timeLeft: 25 * 60, // 25分をデフォルト
+      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60, // 25分をデフォルト
       isRunning: false,
       intervalId: null
     };
@@ -97,7 +100,7 @@ export class PomodoroTimer {
       
       this.updateDisplay();
       await this.saveState();
-    }, 1000);
+    }, PomodoroTimer.TIMER_INTERVAL_MS);
   }
   
   private initEventListeners(): void {
@@ -127,7 +130,7 @@ export class PomodoroTimer {
         
         this.updateDisplay();
         await this.saveState();
-      }, 1000);
+      }, PomodoroTimer.TIMER_INTERVAL_MS);
 
       await this.saveState();
     }
@@ -178,7 +181,7 @@ export class PomodoroTimer {
     await this.pause();
     
     // 25分にリセット
-    await this.setTime(25);
+    await this.setTime(PomodoroTimer.DEFAULT_MINUTES);
   }
   
   private updateDisplay(): void {
