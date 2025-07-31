@@ -152,7 +152,6 @@ export class PomodoroTimer {
     if (!this.state.isRunning) {
       this.state.timeLeft = minutes * 60;
       this.updateDisplay();
-      this.timerDisplay.style.color = "#e74c3c";
       await this.saveState();
     }
   }
