@@ -275,31 +275,5 @@ describe('PomodoroTimer', () => {
         expect(timer.getIsRunning()).toBe(false)
       }, { timeout: 1000 })
     })
-
-    it('Chrome拡張環境でない場合は状態保存をスキップ', async () => {
-      // configurable: trueを追加して削除可能にする
-      Object.defineProperty(global, 'chrome', {
-        value: undefined,
-        writable: true,
-        configurable: true
-      })
-
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-
-      await timer.start()
-      
-      // 状態保存が呼ばれないことを確認
-      expect(mockStorage.local.set).not.toHaveBeenCalled()
-
-      // Chromeオブジェクトを復元
-      Object.defineProperty(global, 'chrome', {
-        value: {
-          storage: mockStorage
-        },
-        writable: true,
-        configurable: true
-      })
-    })
   })
 })

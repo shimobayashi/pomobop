@@ -54,17 +54,12 @@ export class PomodoroTimer {
       lastSaveTime: Date.now()
     };
     
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      await chrome.storage.local.set({ pomodoroState: stateToSave });
-    }
+    await chrome.storage.local.set({ pomodoroState: stateToSave });
   }
 
   private async loadStateFromStorage(): Promise<TimerState | null> {
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      const result = await chrome.storage.local.get('pomodoroState');
-      return result.pomodoroState || null;
-    }
-    return null;
+    const result = await chrome.storage.local.get('pomodoroState');
+    return result.pomodoroState || null;
   }
 
   private calculateElapsedTime(lastSaveTime: number): number {
@@ -98,7 +93,7 @@ export class PomodoroTimer {
       this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
       
       if (this.state.timeLeft > 0) {
-        this.resumeTimer();
+        await this.start();
       } else {
         this.state.timeLeft = 0;
         await this.complete();
@@ -114,12 +109,6 @@ export class PomodoroTimer {
     if (savedState) {
       await this.applyRestoredState(savedState);
     }
-  }
-
-  private resumeTimer(): void {
-    this.state.isRunning = true;
-    this.updateButtonStates();
-    this.state.intervalId = this.createTimerInterval();
   }
   
   private initEventListeners(): void {
