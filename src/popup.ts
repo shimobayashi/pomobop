@@ -120,9 +120,9 @@ export class PomodoroTimer {
     this.startBtn.addEventListener('click', () => this.start());
     this.pauseBtn.addEventListener('click', () => this.pause());
     
-    this.preset25.addEventListener('click', () => this.setTime(25));
-    this.preset15.addEventListener('click', () => this.setTime(15));
-    this.preset5.addEventListener('click', () => this.setTime(5));
+    this.preset25.addEventListener('click', () => this.setTimeSeconds(25 * 60));
+    this.preset15.addEventListener('click', () => this.setTimeSeconds(15 * 60));
+    this.preset5.addEventListener('click', () => this.setTimeSeconds(5 * 60));
     this.preset1sec.addEventListener('click', () => this.setTimeSeconds(1));
   }
   
@@ -149,14 +149,6 @@ export class PomodoroTimer {
     }
   }
   
-  public async setTime(minutes: number): Promise<void> {
-    if (!this.state.isRunning) {
-      this.state.timeLeft = minutes * 60;
-      this.updateDisplay();
-      await this.saveState();
-    }
-  }
-  
   public async setTimeSeconds(seconds: number): Promise<void> {
     if (!this.state.isRunning) {
       this.state.timeLeft = seconds;
@@ -175,7 +167,7 @@ export class PomodoroTimer {
   
   private async complete(): Promise<void> {
     await this.pause();
-    await this.setTime(PomodoroTimer.DEFAULT_MINUTES);
+    await this.setTimeSeconds(PomodoroTimer.DEFAULT_MINUTES * 60);
   }
   
   private updateDisplay(): void {
