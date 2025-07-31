@@ -32,15 +32,42 @@ npm run test:watch
 
 ### 状態管理
 
-両クラスが共通の`TimerState`インターフェースを使用して`chrome.storage.local`で状態を共有:
+2つのインターフェースで状態を管理：
 
 ```typescript
+// メモリ上の内部状態（intervalId含む）
 interface TimerState {
   timeLeft: number;
   isRunning: boolean;
+  intervalId: number | null;
   lastSaveTime?: number;
 }
+
+// chrome.storage.localに保存される状態
+interface StoredState {
+  timeLeft: number;
+  isRunning: boolean;
+  lastSaveTime: number;
+}
 ```
+
+両クラスが`chrome.storage.local`で`StoredState`を共有し、状態を同期します。
+
+### PomodoroTimerクラス設計
+
+主要メソッド構成:
+
+- **`createTimerInterval()`**: タイマーのカウントダウン処理
+- **`updateButtonStates()`**: ボタンの有効/無効状態管理
+- **`start()`**: タイマー開始処理
+- **`pause()`**: タイマー停止処理
+- **`complete()`**: タイマー完了時の処理
+
+### 型安全性
+
+- DOM要素に具体的な型を指定（`HTMLDivElement`, `HTMLButtonElement`等）
+- Chrome拡張APIの型を厳密に定義
+- ジェネリック関数で型安全な要素取得
 
 ### アーキテクチャの特徴
 
@@ -54,6 +81,7 @@ interface TimerState {
 - **環境**: Vitest + jsdom
 - **モック**: Chrome拡張API（storage, alarms, tabs等）をvi.fn()でモック
 - **対象**: 両メインクラスの全メソッドをテスト
+- **テスト数**: 26テスト
 
 ### ビルド
 
