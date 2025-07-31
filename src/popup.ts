@@ -104,7 +104,7 @@ export class PomodoroTimer {
       this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
       
       if (this.state.timeLeft > 0) {
-        this.resumeTimer();
+        this.startTimer();
       } else {
         this.state.timeLeft = 0;
         await this.complete();
@@ -120,10 +120,6 @@ export class PomodoroTimer {
     if (savedState) {
       await this.applyRestoredState(savedState);
     }
-  }
-
-  private resumeTimer(): void {
-    this.startTimer();
   }
   
   private initEventListeners(): void {
