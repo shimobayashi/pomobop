@@ -71,7 +71,7 @@ describe('PomodoroTimer', () => {
       timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
-      await timer.setTime(25)
+      await timer.setTimeSeconds(25 * 60)
       expect(timer.getTimeLeft()).toBe(25 * 60)
     })
 
@@ -79,7 +79,7 @@ describe('PomodoroTimer', () => {
       timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
-      await timer.setTime(15)
+      await timer.setTimeSeconds(15 * 60)
       expect(timer.getTimeLeft()).toBe(15 * 60)
     })
 
@@ -87,7 +87,7 @@ describe('PomodoroTimer', () => {
       timer = new PomodoroTimer()
       await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
       
-      await timer.setTime(5)
+      await timer.setTimeSeconds(5 * 60)
       expect(timer.getTimeLeft()).toBe(5 * 60)
     })
 
@@ -136,7 +136,7 @@ describe('PomodoroTimer', () => {
       
       await timer.start()
       const initialTime = timer.getTimeLeft()
-      await timer.setTime(10)
+      await timer.setTimeSeconds(10 * 60)
       expect(timer.getTimeLeft()).toBe(initialTime)
     })
 
