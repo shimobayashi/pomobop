@@ -20,7 +20,7 @@ export class PomodoroTimer {
 
   constructor() {
     this.state = {
-      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60, // 25分をデフォルト
+      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60, // デフォルト値
       isRunning: false,
       intervalId: null
     };
@@ -180,7 +180,7 @@ export class PomodoroTimer {
   private async complete(): Promise<void> {
     await this.pause();
     
-    // 25分にリセット
+    // デフォルト値にリセット
     await this.setTime(PomodoroTimer.DEFAULT_MINUTES);
   }
   
