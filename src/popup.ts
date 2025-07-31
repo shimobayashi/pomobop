@@ -54,12 +54,17 @@ export class PomodoroTimer {
       lastSaveTime: Date.now()
     };
     
-    await chrome.storage.local.set({ pomodoroState: stateToSave });
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      await chrome.storage.local.set({ pomodoroState: stateToSave });
+    }
   }
 
   private async loadStateFromStorage(): Promise<TimerState | null> {
-    const result = await chrome.storage.local.get('pomodoroState');
-    return result.pomodoroState || null;
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      const result = await chrome.storage.local.get('pomodoroState');
+      return result.pomodoroState || null;
+    }
+    return null;
   }
 
   private calculateElapsedTime(lastSaveTime: number): number {
