@@ -86,9 +86,9 @@ export class PomodoroTimer {
     }, PomodoroTimer.TIMER_INTERVAL_MS);
   }
 
-  private updateButtonStates(isRunning: boolean): void {
-    this.startBtn.disabled = isRunning;
-    this.pauseBtn.disabled = !isRunning;
+  private updateButtonStates(): void {
+    this.startBtn.disabled = this.state.isRunning;
+    this.pauseBtn.disabled = !this.state.isRunning;
   }
 
   private async applyRestoredState(savedState: TimerState): Promise<void> {
@@ -118,7 +118,7 @@ export class PomodoroTimer {
 
   private resumeTimer(): void {
     this.state.isRunning = true;
-    this.updateButtonStates(true);
+    this.updateButtonStates();
     this.state.intervalId = this.createTimerInterval();
   }
   
@@ -135,7 +135,7 @@ export class PomodoroTimer {
   public async start(): Promise<void> {
     if (!this.state.isRunning) {
       this.state.isRunning = true;
-      this.updateButtonStates(true);
+      this.updateButtonStates();
       this.state.intervalId = this.createTimerInterval();
       await this.saveState();
     }
@@ -144,7 +144,7 @@ export class PomodoroTimer {
   public async pause(): Promise<void> {
     if (this.state.isRunning) {
       this.state.isRunning = false;
-      this.updateButtonStates(false);
+      this.updateButtonStates();
       
       if (this.state.intervalId) {
         clearInterval(this.state.intervalId);
