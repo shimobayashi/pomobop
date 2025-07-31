@@ -59,28 +59,40 @@ export class PomodoroTimer {
     }
   }
 
-  private async restoreState(): Promise<void> {
+  private async loadStateFromStorage(): Promise<TimerState | null> {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       const result = await chrome.storage.local.get('pomodoroState');
-      if (result.pomodoroState) {
-        const savedState = result.pomodoroState;
-        
-        // タイマーが実行中だった場合、経過時間を計算
-        if (savedState.isRunning && savedState.lastSaveTime) {
-          const elapsed = Math.floor((Date.now() - savedState.lastSaveTime) / 1000);
-          this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
-          
-          if (this.state.timeLeft > 0) {
-            this.resumeTimer();
-          } else {
-            this.state.timeLeft = 0;
-            await this.complete();
-          }
-        } else {
-          // 停止中だった場合はそのまま復元
-          this.state.timeLeft = savedState.timeLeft;
-        }
+      return result.pomodoroState || null;
+    }
+    return null;
+  }
+
+  private calculateElapsedTime(lastSaveTime: number): number {
+    return Math.floor((Date.now() - lastSaveTime) / 1000);
+  }
+
+  private async applyRestoredState(savedState: TimerState): Promise<void> {
+    // タイマーが実行中だった場合、経過時間を計算
+    if (savedState.isRunning && savedState.lastSaveTime) {
+      const elapsed = this.calculateElapsedTime(savedState.lastSaveTime);
+      this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
+      
+      if (this.state.timeLeft > 0) {
+        this.resumeTimer();
+      } else {
+        this.state.timeLeft = 0;
+        await this.complete();
       }
+    } else {
+      // 停止中だった場合はそのまま復元
+      this.state.timeLeft = savedState.timeLeft;
+    }
+  }
+
+  private async restoreState(): Promise<void> {
+    const savedState = await this.loadStateFromStorage();
+    if (savedState) {
+      await this.applyRestoredState(savedState);
     }
   }
 
