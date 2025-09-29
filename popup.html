@@ -57,11 +57,48 @@
     .test-button:hover {
       background-color: #e67e22 !important;
     }
+    .session-info {
+      text-align: center;
+      margin: 10px 0;
+    }
+    #sessionType {
+      font-weight: bold;
+      color: #333;
+      font-size: 16px;
+    }
+    .progress-container {
+      text-align: center;
+      margin: 10px 0;
+    }
+    #progressDots {
+      font-size: 20px;
+      letter-spacing: 4px;
+      font-family: monospace;
+    }
+    /* 作業セッション：赤系 */
+    #progressDots {
+      color: #e74c3c;
+    }
+    /* CSS で文字色を設定（JavaScript側で適用） */
+    .progress-work-done { color: #c0392b; }      /* 作業完了：濃い赤 */
+    .progress-work-todo { color: #f1c40f; }      /* 作業未完了：黄 */
+    .progress-short-done { color: #3498db; }     /* 短休憩完了：青 */
+    .progress-short-todo { color: #85c1e9; }     /* 短休憩未完了：薄青 */
+    .progress-long-done { color: #27ae60; }      /* 長休憩完了：緑 */
+    .progress-long-todo { color: #82e5aa; }      /* 長休憩未完了：薄緑 */
   </style>
 </head>
 <body>
   <h1>Pomodoro Timer</h1>
-  
+
+  <div class="session-info">
+    <div id="sessionType">作業中</div>
+  </div>
+
+  <div class="progress-container">
+    <div id="progressDots"></div>
+  </div>
+
   <div class="timer-display" id="timerDisplay">25:00</div>
   
   <div class="preset-buttons">
