@@ -25,7 +25,7 @@ describe('PomodoroTimer', () => {
     // HTMLをセットアップ
     document.body.innerHTML = `
       <div id="sessionType">作業中</div>
-      <div id="progressDots">●○○○○○○○</div>
+      <div id="progressDots"></div>
       <div id="timerDisplay">25:00</div>
       <button id="startBtn">開始</button>
       <button id="pauseBtn" disabled>一時停止</button>
