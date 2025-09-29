@@ -288,7 +288,6 @@ describe('PomodoroTimer', () => {
         timer = new PomodoroTimer()
         await vi.waitFor(() => {
           expect(timer.getTimeLeft()).toBe(25 * 60)
-          // TDD: まず失敗するテストを追加
           expect(timer.getSessionType()).toBe('work')
           expect(timer.getCyclePosition()).toBe(1)
         }, { timeout: 1000 })
@@ -310,7 +309,6 @@ describe('PomodoroTimer', () => {
     describe('セッション種別の決定', () => {
       it('cyclePosition 1,3,5,7 は作業セッション', () => {
         timer = new PomodoroTimer()
-        // TDD: staticメソッドをテスト
         expect(PomodoroTimer.getSessionTypeFromPosition(1)).toBe('work')
         expect(PomodoroTimer.getSessionTypeFromPosition(3)).toBe('work')
         expect(PomodoroTimer.getSessionTypeFromPosition(5)).toBe('work')
