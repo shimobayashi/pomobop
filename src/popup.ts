@@ -233,9 +233,9 @@ export class PomodoroTimer {
     const sessionTypeText = this.getSessionTypeText(this.state.sessionType);
     this.sessionTypeDisplay.textContent = sessionTypeText;
 
-    // 進捗ドットの表示更新
-    const progressDots = this.generateProgressDots(this.state.cyclePosition);
-    this.progressDotsDisplay.textContent = progressDots;
+    // 進捗ドットの表示更新（HTMLとして設定）
+    const progressDotsHtml = this.generateProgressDots(this.state.cyclePosition);
+    this.progressDotsDisplay.innerHTML = progressDotsHtml;
   }
 
   private getSessionTypeText(sessionType: SessionType): string {
@@ -248,14 +248,29 @@ export class PomodoroTimer {
 
   private generateProgressDots(position: number): string {
     const total = 8;
-    const filled = '●';
-    const empty = '○';
     
-    let dots = '';
+    let dotsHtml = '';
     for (let i = 1; i <= total; i++) {
-      dots += i <= position ? filled : empty;
+      let symbol = '';
+      let className = '';
+      
+      if (i % 2 === 1) {
+        // 作業セッション
+        symbol = i <= position ? '●' : '○';
+        className = i <= position ? 'progress-work-done' : 'progress-work-todo';
+      } else if (i === 8) {
+        // 長い休憩
+        symbol = i <= position ? '◆' : '◇';
+        className = i <= position ? 'progress-long-done' : 'progress-long-todo';
+      } else {
+        // 短い休憩
+        symbol = i <= position ? '▲' : '△';
+        className = i <= position ? 'progress-short-done' : 'progress-short-todo';
+      }
+      
+      dotsHtml += `<span class="${className}">${symbol}</span>`;
     }
-    return dots;
+    return dotsHtml;
   }
 
   private updateButtonStates(): void {

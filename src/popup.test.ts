@@ -300,7 +300,9 @@ describe('PomodoroTimer', () => {
           const sessionTypeElement = document.getElementById('sessionType')
           const progressDotsElement = document.getElementById('progressDots')
           expect(sessionTypeElement?.textContent).toBe('作業中')
-          expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
+          // HTMLで表示されるため、内容を確認
+          expect(progressDotsElement?.innerHTML).toContain('●')
+          expect(progressDotsElement?.innerHTML).toContain('progress-work-done')
         }, { timeout: 1000 })
       })
     })
@@ -490,7 +492,13 @@ describe('PomodoroTimer', () => {
         // position 1（初期状態）
         timer = new PomodoroTimer()
         await vi.waitFor(() => {
-          expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
+          const html = progressDotsElement?.innerHTML || ''
+          // position 1: 作業完了(●)が1つ、残りは未完了
+          expect(html).toContain('progress-work-done')
+          expect(html).toContain('●')
+          // 短い休憩の未完了(△)があること
+          expect(html).toContain('progress-short-todo')
+          expect(html).toContain('△')
         }, { timeout: 1000 })
 
         // position 3
@@ -505,7 +513,11 @@ describe('PomodoroTimer', () => {
         })
         timer = new PomodoroTimer()
         await vi.waitFor(() => {
-          expect(progressDotsElement?.textContent).toBe('●●●○○○○○')
+          const html = progressDotsElement?.innerHTML || ''
+          // position 3: 3つ完了済み（作業2回+短休憩1回）
+          expect(html).toContain('progress-work-done')
+          expect(html).toContain('progress-short-done')
+          expect(html).toContain('▲') // 短い休憩完了
         }, { timeout: 1000 })
 
         // position 8
@@ -520,7 +532,10 @@ describe('PomodoroTimer', () => {
         })
         timer = new PomodoroTimer()
         await vi.waitFor(() => {
-          expect(progressDotsElement?.textContent).toBe('●●●●●●●●')
+          const html = progressDotsElement?.innerHTML || ''
+          // position 8: 全て完了、長い休憩(◆)が含まれる
+          expect(html).toContain('progress-long-done')
+          expect(html).toContain('◆') // 長い休憩完了
         }, { timeout: 1000 })
       })
     })
