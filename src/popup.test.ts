@@ -297,12 +297,10 @@ describe('PomodoroTimer', () => {
       it('初期状態で作業セッションUIが表示される', async () => {
         timer = new PomodoroTimer()
         await vi.waitFor(() => {
-          // 実装後にアサーションを有効化
-          // const sessionTypeElement = document.getElementById('sessionType')
-          // const progressDotsElement = document.getElementById('progressDots')
-          // expect(sessionTypeElement?.textContent).toBe('作業中')
-          // expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
-          expect(true).toBe(true) // 一時的なプレースホルダー
+          const sessionTypeElement = document.getElementById('sessionType')
+          const progressDotsElement = document.getElementById('progressDots')
+          expect(sessionTypeElement?.textContent).toBe('作業中')
+          expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
         }, { timeout: 1000 })
       })
     })
@@ -349,8 +347,6 @@ describe('PomodoroTimer', () => {
 
     describe('サイクル遷移', () => {
       it('作業セッション完了後、短い休憩に遷移', async () => {
-        // 実装後にテスト有効化
-        /*
         timer = new PomodoroTimer()
         await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
 
@@ -366,12 +362,9 @@ describe('PomodoroTimer', () => {
           expect(timer.getSessionType()).toBe('shortBreak')
           expect(timer.getTimeLeft()).toBe(5 * 60)
         }, { timeout: 1000 })
-        */
       })
 
       it('短い休憩完了後、作業セッションに遷移', async () => {
-        // 実装後にテスト有効化
-        /*
         mockStorage.local.get.mockResolvedValue({
           pomodoroState: {
             timeLeft: 1,
@@ -392,12 +385,9 @@ describe('PomodoroTimer', () => {
           expect(timer.getSessionType()).toBe('work')
           expect(timer.getTimeLeft()).toBe(25 * 60)
         }, { timeout: 1000 })
-        */
       })
 
       it('position=8完了後position=1に戻る', async () => {
-        // 実装後にテスト有効化
-        /*
         mockStorage.local.get.mockResolvedValue({
           pomodoroState: {
             timeLeft: 1,
@@ -418,14 +408,11 @@ describe('PomodoroTimer', () => {
           expect(timer.getSessionType()).toBe('work')
           expect(timer.getTimeLeft()).toBe(25 * 60)
         }, { timeout: 1000 })
-        */
       })
     })
 
     describe('プリセットボタンのサイクルリセット', () => {
       it('プリセットボタンでサイクルがリセットされる', async () => {
-        // 実装後にテスト有効化
-        /*
         // サイクル途中の状態を設定
         mockStorage.local.get.mockResolvedValue({
           pomodoroState: {
@@ -438,72 +425,124 @@ describe('PomodoroTimer', () => {
         })
 
         timer = new PomodoroTimer()
-        await vi.waitFor(() => timer.getCyclePosition() === 4, { timeout: 1000 })
+        await vi.waitFor(() => {
+          expect(timer.getCyclePosition()).toBe(4)
+          expect(timer.getSessionType()).toBe('shortBreak')
+        }, { timeout: 1000 })
 
-        // プリセットボタン押下（自動開始+リセット）
-        await timer.setTimeSeconds(15 * 60) // 15分プリセット
+        // プリセットボタンクリック
+        const preset15Btn = document.getElementById('preset15') as HTMLButtonElement
+        preset15Btn.click() // これが setTimeAndResetCycle(15 * 60) を呼び出す
 
-        expect(timer.getCyclePosition()).toBe(1)
-        expect(timer.getSessionType()).toBe('work')
-        expect(timer.getTimeLeft()).toBe(15 * 60)
-        expect(timer.getIsRunning()).toBe(true) // 自動開始
-        */
+        await vi.waitFor(() => {
+          expect(timer.getCyclePosition()).toBe(1)
+          expect(timer.getSessionType()).toBe('work')
+          expect(timer.getTimeLeft()).toBe(15 * 60)
+          expect(timer.getIsRunning()).toBe(true) // 自動開始
+        }, { timeout: 1000 })
       })
     })
 
     describe('UI表示の更新', () => {
       it('セッション種別がUIに正しく表示される', async () => {
-        // 実装後にテスト有効化
-        /*
         const sessionTypeElement = document.getElementById('sessionType')
 
-        // 作業セッション
+        // 作業セッション（初期状態）
         timer = new PomodoroTimer()
-        timer.updateSessionDisplay() // 実装される予定のメソッド
-        expect(sessionTypeElement?.textContent).toBe('作業中')
+        await vi.waitFor(() => {
+          expect(sessionTypeElement?.textContent).toBe('作業中')
+        }, { timeout: 1000 })
 
-        // 短い休憩
-        timer.setCyclePosition(2)
-        timer.updateSessionDisplay()
-        expect(sessionTypeElement?.textContent).toBe('短い休憩')
+        // 短い休憩の状態をテスト
+        mockStorage.local.get.mockResolvedValue({
+          pomodoroState: {
+            timeLeft: 5 * 60,
+            isRunning: false,
+            lastSaveTime: Date.now(),
+            sessionType: 'shortBreak',
+            cyclePosition: 2
+          }
+        })
+        timer = new PomodoroTimer()
+        await vi.waitFor(() => {
+          expect(sessionTypeElement?.textContent).toBe('短い休憩')
+        }, { timeout: 1000 })
 
-        // 長い休憩
-        timer.setCyclePosition(8)
-        timer.updateSessionDisplay()
-        expect(sessionTypeElement?.textContent).toBe('長い休憩')
-        */
+        // 長い休憩の状態をテスト
+        mockStorage.local.get.mockResolvedValue({
+          pomodoroState: {
+            timeLeft: 15 * 60,
+            isRunning: false,
+            lastSaveTime: Date.now(),
+            sessionType: 'longBreak',
+            cyclePosition: 8
+          }
+        })
+        timer = new PomodoroTimer()
+        await vi.waitFor(() => {
+          expect(sessionTypeElement?.textContent).toBe('長い休憩')
+        }, { timeout: 1000 })
       })
 
       it('進捗ドットが正しく表示される', async () => {
-        // 実装後にテスト有効化
-        /*
         const progressDotsElement = document.getElementById('progressDots')
 
-        // position 1
+        // position 1（初期状態）
         timer = new PomodoroTimer()
-        timer.updateSessionDisplay()
-        expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
+        await vi.waitFor(() => {
+          expect(progressDotsElement?.textContent).toBe('●○○○○○○○')
+        }, { timeout: 1000 })
 
         // position 3
-        timer.setCyclePosition(3)
-        timer.updateSessionDisplay()
-        expect(progressDotsElement?.textContent).toBe('●●●○○○○○')
+        mockStorage.local.get.mockResolvedValue({
+          pomodoroState: {
+            timeLeft: 25 * 60,
+            isRunning: false,
+            lastSaveTime: Date.now(),
+            sessionType: 'work',
+            cyclePosition: 3
+          }
+        })
+        timer = new PomodoroTimer()
+        await vi.waitFor(() => {
+          expect(progressDotsElement?.textContent).toBe('●●●○○○○○')
+        }, { timeout: 1000 })
 
         // position 8
-        timer.setCyclePosition(8)
-        timer.updateSessionDisplay()
-        expect(progressDotsElement?.textContent).toBe('●●●●●●●●')
-        */
+        mockStorage.local.get.mockResolvedValue({
+          pomodoroState: {
+            timeLeft: 15 * 60,
+            isRunning: false,
+            lastSaveTime: Date.now(),
+            sessionType: 'longBreak',
+            cyclePosition: 8
+          }
+        })
+        timer = new PomodoroTimer()
+        await vi.waitFor(() => {
+          expect(progressDotsElement?.textContent).toBe('●●●●●●●●')
+        }, { timeout: 1000 })
       })
     })
 
     describe('状態の永続化（サイクル対応）', () => {
       it('サイクル状態が正しく保存される', async () => {
-        // 実装後にテスト有効化
-        /*
+        mockStorage.local.get.mockResolvedValue({
+          pomodoroState: {
+            timeLeft: 25 * 60,
+            isRunning: false,
+            lastSaveTime: Date.now(),
+            sessionType: 'work',
+            cyclePosition: 3
+          }
+        })
+
         timer = new PomodoroTimer()
-        timer.setCyclePosition(3)
-        timer.setSessionType('work')
+        await vi.waitFor(() => {
+          expect(timer.getCyclePosition()).toBe(3)
+          expect(timer.getSessionType()).toBe('work')
+        }, { timeout: 1000 })
+
         await timer.start()
 
         expect(mockStorage.local.set).toHaveBeenCalledWith({
@@ -515,12 +554,9 @@ describe('PomodoroTimer', () => {
             cyclePosition: 3
           })
         })
-        */
       })
 
       it('サイクル状態が復元される', async () => {
-        // 実装後にテスト有効化
-        /*
         mockStorage.local.get.mockResolvedValue({
           pomodoroState: {
             timeLeft: 5 * 60,
@@ -538,12 +574,9 @@ describe('PomodoroTimer', () => {
           expect(timer.getSessionType()).toBe('shortBreak')
           expect(timer.getCyclePosition()).toBe(6)
         }, { timeout: 1000 })
-        */
       })
 
       it('古い状態データでもデフォルト値で動作する', async () => {
-        // 実装後にテスト有効化
-        /*
         // sessionType、cyclePositionがない古いデータ
         mockStorage.local.get.mockResolvedValue({
           pomodoroState: {
@@ -560,7 +593,6 @@ describe('PomodoroTimer', () => {
           expect(timer.getSessionType()).toBe('work') // デフォルト値
           expect(timer.getCyclePosition()).toBe(1) // デフォルト値
         }, { timeout: 1000 })
-        */
       })
     })
   })
