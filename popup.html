@@ -57,11 +57,37 @@
     .test-button:hover {
       background-color: #e67e22 !important;
     }
+    .session-info {
+      text-align: center;
+      margin: 10px 0;
+    }
+    #sessionType {
+      font-weight: bold;
+      color: #333;
+      font-size: 16px;
+    }
+    .progress-container {
+      text-align: center;
+      margin: 10px 0;
+    }
+    #progressDots {
+      font-size: 20px;
+      letter-spacing: 4px;
+      color: #e74c3c;
+    }
   </style>
 </head>
 <body>
   <h1>Pomodoro Timer</h1>
-  
+
+  <div class="session-info">
+    <div id="sessionType">作業中</div>
+  </div>
+
+  <div class="progress-container">
+    <div id="progressDots">●○○○○○○○</div>
+  </div>
+
   <div class="timer-display" id="timerDisplay">25:00</div>
   
   <div class="preset-buttons">
