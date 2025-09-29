@@ -197,12 +197,15 @@ export class PomodoroTimer {
 
   // === サイクル管理 ===
 
-  private moveToNextSession(): void {
+  private async moveToNextSession(): Promise<void> {
     // 次のサイクル位置に移動（8の次は1に戻る）
     this.state.cyclePosition = (this.state.cyclePosition % 8) + 1;
     
     // 新しい位置に基づいてセッション種別を決定
     this.state.sessionType = PomodoroTimer.getSessionTypeFromPosition(this.state.cyclePosition);
+    
+    // 状態を保存
+    await this.saveState();
   }
 
   private async setTimeAndResetCycle(timeInSeconds: number): Promise<void> {
