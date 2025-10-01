@@ -56,7 +56,6 @@ export class PomodoroTimer {
     this.initEventListeners();
     this.restoreState().then(() => {
       this.updateDisplay();
-      this.updateSessionDisplay();
     });
   }
 
@@ -124,7 +123,7 @@ export class PomodoroTimer {
     }
     
     // UI更新
-    this.updateSessionDisplay();
+    this.updateDisplay();
   }
 
   private calculateElapsedTime(lastSaveTime: number): number {
@@ -185,14 +184,14 @@ export class PomodoroTimer {
     await this.pause();
     
     // 次のセッションに遷移
-    this.moveToNextSession();
+    await this.moveToNextSession();
     
     // 新しいセッションの時間を設定
     const newDuration = PomodoroTimer.getSessionDuration(this.state.sessionType);
     await this.setTimeSeconds(newDuration);
     
     // UI更新
-    this.updateSessionDisplay();
+    this.updateDisplay();
   }
 
   // === サイクル管理 ===
@@ -217,7 +216,7 @@ export class PomodoroTimer {
     await this.setTimeSeconds(timeInSeconds);
     
     // UI更新
-    this.updateSessionDisplay();
+    this.updateDisplay();
     
     // 自動開始
     await this.start();
@@ -226,12 +225,11 @@ export class PomodoroTimer {
   // === UI更新 ===
 
   private updateDisplay(): void {
+    // 時間表示の更新
     const minutes = Math.floor(this.state.timeLeft / 60);
     const seconds = this.state.timeLeft % 60;
     this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }
-
-  private updateSessionDisplay(): void {
+    
     // セッション種別の表示更新
     const sessionTypeText = this.getSessionTypeText(this.state.sessionType);
     this.sessionTypeDisplay.textContent = sessionTypeText;
@@ -240,6 +238,8 @@ export class PomodoroTimer {
     const progressDotsHtml = this.generateProgressDots(this.state.cyclePosition);
     this.progressDotsDisplay.innerHTML = progressDotsHtml;
   }
+
+  
 
   private getSessionTypeText(sessionType: SessionType): string {
     switch (sessionType) {
