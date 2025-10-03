@@ -1,12 +1,14 @@
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
 interface TimerState {
-  timeLeft: number;
-  isRunning: boolean;
-  intervalId: number | null;
-  lastSaveTime?: number;
-  sessionType: SessionType;
-  cyclePosition: number;
+  // 表示計算用（真実の状態ではない）
+  endTime: number | null;         // 表示計算用終了時刻
+  isRunning: boolean;             // 表示用実行状態
+  sessionType: SessionType;       // 表示用セッション種別
+  cyclePosition: number;          // 表示用サイクル位置
+  
+  // ローカル表示制御
+  displayIntervalId: number | null; // 1秒刻み表示用interval
 }
 
 interface StoredState {
@@ -15,13 +17,16 @@ interface StoredState {
   lastSaveTime: number;
   sessionType: SessionType;
   cyclePosition: number;
+  startTime: number | null;
+  endTime: number | null;
+  pausedAt: number | null;
+  pausedDuration: number;
 }
 
 export class PomodoroTimer {
   private static readonly DEFAULT_MINUTES = 25;
-  private static readonly TIMER_INTERVAL_MS = 1000;
 
-  private state: TimerState;
+  private displayState: TimerState;
   private readonly timerDisplay: HTMLDivElement;
   private readonly sessionTypeDisplay: HTMLDivElement;
   private readonly progressDotsDisplay: HTMLDivElement;
@@ -32,15 +37,13 @@ export class PomodoroTimer {
   private readonly preset5: HTMLButtonElement;
   private readonly preset1sec: HTMLButtonElement;
 
-  // === 初期化フロー ===
-  
   constructor() {
-    this.state = {
-      timeLeft: PomodoroTimer.DEFAULT_MINUTES * 60,
+    this.displayState = {
+      endTime: null,
       isRunning: false,
-      intervalId: null,
       sessionType: 'work',
-      cyclePosition: 1
+      cyclePosition: 1,
+      displayIntervalId: null
     };
     
     this.timerDisplay = this.getElementById<HTMLDivElement>('timerDisplay');
@@ -54,7 +57,9 @@ export class PomodoroTimer {
     this.preset1sec = this.getElementById<HTMLButtonElement>('preset1sec');
     
     this.initEventListeners();
-    this.restoreState().then(() => {
+    this.initStorageListener();
+    this.initMessageListener();
+    this.initializeFromBackground().then(() => {
       this.updateDisplay();
     });
   }
@@ -68,178 +73,184 @@ export class PomodoroTimer {
   }
 
   private initEventListeners(): void {
-    this.startBtn.addEventListener('click', () => this.start());
-    this.pauseBtn.addEventListener('click', () => this.pause());
+    this.startBtn.addEventListener('click', async () => {
+      try {
+        await this.sendCommand('START_TIMER');
+      } catch (error) {
+        console.log('Start command failed, background may not be ready');
+      }
+    });
+    
+    this.pauseBtn.addEventListener('click', async () => {
+      try {
+        await this.sendCommand('PAUSE_TIMER');
+      } catch (error) {
+        console.log('Pause command failed, background may not be ready');
+      }
+    });
     
     // プリセットボタン: 時間設定 + サイクルリセット + 自動開始
-    this.preset25.addEventListener('click', () => this.setTimeAndResetCycle(25 * 60));
-    this.preset15.addEventListener('click', () => this.setTimeAndResetCycle(15 * 60));
-    this.preset5.addEventListener('click', () => this.setTimeAndResetCycle(5 * 60));
-    this.preset1sec.addEventListener('click', () => this.setTimeAndResetCycle(1));
+    this.preset25.addEventListener('click', () => this.setTimeAndStart(25 * 60));
+    this.preset15.addEventListener('click', () => this.setTimeAndStart(15 * 60));
+    this.preset5.addEventListener('click', () => this.setTimeAndStart(5 * 60));
+    this.preset1sec.addEventListener('click', () => this.setTimeAndStart(1));
+    
+    // ポップアップ閉鎖時のクリーンアップ
+    window.addEventListener('beforeunload', () => {
+      this.stopDisplayLoop();
+    });
   }
 
-  // === 状態復元フロー ===
+  private initStorageListener(): void {
+    // chrome.storage.onChanged で状態同期
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'local' && changes.pomodoroState) {
+        this.syncDisplayState(changes.pomodoroState.newValue);
+      }
+    });
+  }
 
-  private async restoreState(): Promise<void> {
-    const savedState = await this.loadStateFromStorage();
-    if (savedState) {
-      await this.applyRestoredState(savedState);
+  private initMessageListener(): void {
+    // 30秒同期メッセージの受信
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.type === 'STATE_SYNC') {
+        this.handleSyncMessage(message);
+      }
+    });
+  }
+
+  private async initializeFromBackground(): Promise<void> {
+    // まずstorageから直接読み込み（確実な方法）
+    const result = await chrome.storage.local.get('pomodoroState');
+    if (result.pomodoroState) {
+      this.syncDisplayState(result.pomodoroState);
+    }
+    
+    // バックグラウンドからの状態取得を試行（バックグラウンドが起動していない場合は失敗する）
+    try {
+      await this.sendCommand('GET_STATE');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log('Background not ready yet, using storage state only:', errorMessage);
+      // エラーは正常な状況なので、警告レベルで記録
     }
   }
 
-  private async loadStateFromStorage(): Promise<StoredState | null> {
-    const result = await chrome.storage.local.get('pomodoroState');
-    const savedState = result.pomodoroState as any;
-    
-    if (!savedState) return null;
-    
-    // 後方互換性: 古いデータにデフォルト値を設定
-    return {
-      timeLeft: savedState.timeLeft,
-      isRunning: savedState.isRunning,
-      lastSaveTime: savedState.lastSaveTime,
-      sessionType: savedState.sessionType || 'work',
-      cyclePosition: savedState.cyclePosition || 1
-    };
+  private async sendCommand(command: string, data?: any): Promise<void> {
+    try {
+      await chrome.runtime.sendMessage({ type: command, ...data });
+    } catch (error) {
+      // バックグラウンドが起動していない場合は正常な状況
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Could not establish connection')) {
+        console.log(`Background not ready for command ${command}, will retry when available`);
+      } else {
+        console.error(`Failed to send command ${command}:`, error);
+      }
+      throw error; // 呼び出し元でのエラーハンドリングのため
+    }
   }
 
-  private async applyRestoredState(savedState: StoredState): Promise<void> {
-    // 新しいプロパティを復元
-    this.state.sessionType = savedState.sessionType;
-    this.state.cyclePosition = savedState.cyclePosition;
+  private syncDisplayState(backendState: StoredState): void {
+    if (!backendState) return;
     
-    if (savedState.isRunning && savedState.lastSaveTime) {
-      const elapsed = this.calculateElapsedTime(savedState.lastSaveTime);
-      this.state.timeLeft = Math.max(0, savedState.timeLeft - elapsed);
-      
-      if (this.state.timeLeft > 0) {
-        await this.start();
-      } else {
-        this.state.timeLeft = 0;
-        await this.complete();
+    // 表示用状態の同期
+    this.displayState.isRunning = backendState.isRunning;
+    this.displayState.sessionType = backendState.sessionType;
+    this.displayState.cyclePosition = backendState.cyclePosition;
+    
+    // endTime基準の表示計算
+    if (backendState.endTime && backendState.isRunning) {
+      // 2秒以上ズレている場合は補正
+      if (!this.displayState.endTime || 
+          Math.abs(this.displayState.endTime - backendState.endTime) > 2000) {
+        this.displayState.endTime = backendState.endTime;
       }
     } else {
-      this.state.timeLeft = savedState.timeLeft;
+      this.displayState.endTime = null;
     }
     
-    // UI更新
-    this.updateDisplay();
-  }
-
-  private calculateElapsedTime(lastSaveTime: number): number {
-    return Math.floor((Date.now() - lastSaveTime) / 1000);
-  }
-
-  // === ユーザー操作API ===
-  
-  public async start(): Promise<void> {
-    if (!this.state.isRunning) {
-      this.state.isRunning = true;
-      this.updateButtonStates();
-      this.state.intervalId = this.createTimerInterval();
-      await this.saveState();
+    // 表示ループの開始/停止
+    if (backendState.isRunning && !this.displayState.displayIntervalId) {
+      this.startDisplayLoop();
+    } else if (!backendState.isRunning && this.displayState.displayIntervalId) {
+      this.stopDisplayLoop();
     }
+    
+    this.updateDisplay();
+    this.updateButtonStates();
   }
-  
-  public async pause(): Promise<void> {
-    if (this.state.isRunning) {
-      this.state.isRunning = false;
-      this.updateButtonStates();
-      
-      if (this.state.intervalId) {
-        clearInterval(this.state.intervalId);
-        this.state.intervalId = null;
+
+  private handleSyncMessage(message: any): void {
+    // 30秒同期メッセージでの軽量補正
+    if (message.endTime && this.displayState.isRunning) {
+      // 軽微な補正のみ（storage書き込みなし）
+      if (!this.displayState.endTime || 
+          Math.abs(this.displayState.endTime - message.endTime) > 2000) {
+        this.displayState.endTime = message.endTime;
       }
-
-      await this.saveState();
     }
-  }
-  
-  public async setTimeSeconds(seconds: number): Promise<void> {
-    if (!this.state.isRunning) {
-      this.state.timeLeft = seconds;
-      this.updateDisplay();
-      await this.saveState();
-    }
-  }
-
-  // === タイマー実行フロー ===
-
-  private createTimerInterval(): number {
-    return window.setInterval(async () => {
-      this.state.timeLeft--;
-      
-      if (this.state.timeLeft <= 0) {
-        this.state.timeLeft = 0;
-        await this.complete();
-        return;
-      }
-      
-      this.updateDisplay();
-      await this.saveState();
-    }, PomodoroTimer.TIMER_INTERVAL_MS);
-  }
-
-  private async complete(): Promise<void> {
-    await this.pause();
     
-    // 次のセッションに遷移
-    await this.moveToNextSession();
+    this.displayState.sessionType = message.sessionType || this.displayState.sessionType;
+    this.displayState.cyclePosition = message.cyclePosition || this.displayState.cyclePosition;
+    this.displayState.isRunning = message.isRunning;
     
-    // 新しいセッションの時間を設定
-    const newDuration = PomodoroTimer.getSessionDuration(this.state.sessionType);
-    await this.setTimeSeconds(newDuration);
-    
-    // UI更新
     this.updateDisplay();
   }
 
-  // === サイクル管理 ===
-
-  private async moveToNextSession(): Promise<void> {
-    // 次のサイクル位置に移動（8の次は1に戻る）
-    this.state.cyclePosition = (this.state.cyclePosition % 8) + 1;
+  private startDisplayLoop(): void {
+    if (this.displayState.displayIntervalId) {
+      clearInterval(this.displayState.displayIntervalId);
+    }
     
-    // 新しい位置に基づいてセッション種別を決定
-    this.state.sessionType = PomodoroTimer.getSessionTypeFromPosition(this.state.cyclePosition);
-    
-    // 状態を保存
-    await this.saveState();
+    this.displayState.displayIntervalId = window.setInterval(() => {
+      this.updateDisplay();
+    }, 1000);
   }
 
-  private async setTimeAndResetCycle(timeInSeconds: number): Promise<void> {
-    // サイクルをリセット
-    this.state.sessionType = 'work';
-    this.state.cyclePosition = 1;
-    
-    // 時間を設定
-    await this.setTimeSeconds(timeInSeconds);
-    
-    // UI更新
-    this.updateDisplay();
-    
-    // 自動開始
-    await this.start();
+  private stopDisplayLoop(): void {
+    if (this.displayState.displayIntervalId) {
+      clearInterval(this.displayState.displayIntervalId);
+      this.displayState.displayIntervalId = null;
+    }
   }
 
-  // === UI更新 ===
+  private calculateDisplayTimeLeft(): number {
+    if (!this.displayState.endTime || !this.displayState.isRunning) {
+      return PomodoroTimer.getSessionDuration(this.displayState.sessionType);
+    }
+
+    // endTime基準の精密計算（累積誤差なし）
+    const now = Date.now();
+    return Math.max(0, Math.ceil((this.displayState.endTime - now) / 1000));
+  }
+
+  private async setTimeAndStart(timeInSeconds: number): Promise<void> {
+    try {
+      // バックグラウンドにリセット＋時間設定を送信
+      await this.sendCommand('RESET_TIMER');
+      await this.sendCommand('SET_TIME', { timeLeft: timeInSeconds });
+      await this.sendCommand('START_TIMER');
+    } catch (error) {
+      console.log('Preset commands failed, background may not be ready');
+    }
+  }
 
   private updateDisplay(): void {
     // 時間表示の更新
-    const minutes = Math.floor(this.state.timeLeft / 60);
-    const seconds = this.state.timeLeft % 60;
+    const timeLeft = this.calculateDisplayTimeLeft();
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
     this.timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     
     // セッション種別の表示更新
-    const sessionTypeText = this.getSessionTypeText(this.state.sessionType);
+    const sessionTypeText = this.getSessionTypeText(this.displayState.sessionType);
     this.sessionTypeDisplay.textContent = sessionTypeText;
 
-    // 進捗ドットの表示更新（HTMLとして設定）
-    const progressDotsHtml = this.generateProgressDots(this.state.cyclePosition);
+    // 進捗ドットの表示更新
+    const progressDotsHtml = this.generateProgressDots(this.displayState.cyclePosition);
     this.progressDotsDisplay.innerHTML = progressDotsHtml;
   }
-
-  
 
   private getSessionTypeText(sessionType: SessionType): string {
     switch (sessionType) {
@@ -277,40 +288,28 @@ export class PomodoroTimer {
   }
 
   private updateButtonStates(): void {
-    this.startBtn.disabled = this.state.isRunning;
-    this.pauseBtn.disabled = !this.state.isRunning;
+    this.startBtn.disabled = this.displayState.isRunning;
+    this.pauseBtn.disabled = !this.displayState.isRunning;
   }
 
-  // === 状態永続化 ===
-
-  private async saveState(): Promise<void> {
-    const stateToSave: StoredState = {
-      timeLeft: this.state.timeLeft,
-      isRunning: this.state.isRunning,
-      lastSaveTime: Date.now(),
-      sessionType: this.state.sessionType,
-      cyclePosition: this.state.cyclePosition
-    };
-    
-    await chrome.storage.local.set({ pomodoroState: stateToSave });
-  }
-
-  // === 外部参照API ===
-
+  // 外部参照API（後方互換性のため）
   public getTimeLeft(): number {
-    return this.state.timeLeft;
+    return this.calculateDisplayTimeLeft();
   }
 
   public getSessionType(): SessionType {
-    return this.state.sessionType;
+    return this.displayState.sessionType;
   }
 
   public getCyclePosition(): number {
-    return this.state.cyclePosition;
+    return this.displayState.cyclePosition;
   }
 
-  // === 静的メソッド ===
+  public getIsRunning(): boolean {
+    return this.displayState.isRunning;
+  }
 
+  // 静的メソッド
   public static getSessionTypeFromPosition(position: number): SessionType {
     if (position % 2 === 1) return 'work';
     return position === 8 ? 'longBreak' : 'shortBreak';
@@ -322,10 +321,6 @@ export class PomodoroTimer {
       case 'shortBreak': return 5 * 60;
       case 'longBreak': return 15 * 60;
     }
-  }
-  
-  public getIsRunning(): boolean {
-    return this.state.isRunning;
   }
 }
 
