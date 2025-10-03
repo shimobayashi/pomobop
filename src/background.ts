@@ -88,6 +88,7 @@ export class BackgroundTimer {
       this.state.isRunning = true;
       this.state.startTime = now;
       this.state.endTime = now + (this.state.timeLeft * 1000);
+      this.state.pausedAt = null; // 一時停止状態をクリア
       this.state.lastUpdateTime = now;
       
       // タイマー完了アラームを設定
@@ -103,11 +104,14 @@ export class BackgroundTimer {
   private async pauseTimer(): Promise<void> {
     if (this.state.isRunning) {
       const now = Date.now();
+      
+      // 一時停止する前に残り時間を計算（isRunningがtrueの状態で）
+      const remainingTime = this.calculateCurrentTimeLeft();
+      
+      // 状態を一時停止に変更
       this.state.isRunning = false;
       this.state.pausedAt = now;
-      
-      // 現在の残り時間を計算して更新
-      this.state.timeLeft = this.calculateCurrentTimeLeft();
+      this.state.timeLeft = remainingTime;
       this.state.lastUpdateTime = now;
       
       // アラームをクリア
@@ -222,19 +226,19 @@ export class BackgroundTimer {
   }
 
   private async handleSyncAlarm(): Promise<void> {
-    if (this.state.isRunning) {
-      // 軽量同期メッセージ送信（storage書き込みなし）
-      try {
-        await chrome.runtime.sendMessage({
-          type: 'STATE_SYNC',
-          endTime: this.state.endTime,
-          sessionType: this.state.sessionType,
-          cyclePosition: this.state.cyclePosition,
-          isRunning: this.state.isRunning
-        });
-      } catch (error) {
-        // ポップアップが閉じている場合は無視
-      }
+    // 軽量同期メッセージ送信（実行中・停止中関係なく）
+    try {
+      const currentTimeLeft = this.calculateCurrentTimeLeft();
+      await chrome.runtime.sendMessage({
+        type: 'STATE_SYNC',
+        endTime: this.state.endTime,
+        sessionType: this.state.sessionType,
+        cyclePosition: this.state.cyclePosition,
+        isRunning: this.state.isRunning,
+        timeLeft: currentTimeLeft
+      });
+    } catch (error) {
+      // ポップアップが閉じている場合は無視
     }
   }
 

@@ -6,6 +6,7 @@ interface TimerState {
   isRunning: boolean;             // 表示用実行状態
   sessionType: SessionType;       // 表示用セッション種別
   cyclePosition: number;          // 表示用サイクル位置
+  timeLeft: number;               // 一時停止時の残り時間表示用
   
   // ローカル表示制御
   displayIntervalId: number | null; // 1秒刻み表示用interval
@@ -43,6 +44,7 @@ export class PomodoroTimer {
       isRunning: false,
       sessionType: 'work',
       cyclePosition: 1,
+      timeLeft: 25 * 60, // デフォルト25分
       displayIntervalId: null
     };
     
@@ -158,8 +160,9 @@ export class PomodoroTimer {
     this.displayState.isRunning = backendState.isRunning;
     this.displayState.sessionType = backendState.sessionType;
     this.displayState.cyclePosition = backendState.cyclePosition;
+    this.displayState.timeLeft = backendState.timeLeft; // バックグラウンドからの残り時間を同期
     
-    // endTime基準の表示計算
+    // endTime基準の表示計算（実行中のみ）
     if (backendState.endTime && backendState.isRunning) {
       // 2秒以上ズレている場合は補正
       if (!this.displayState.endTime || 
@@ -195,6 +198,11 @@ export class PomodoroTimer {
     this.displayState.cyclePosition = message.cyclePosition || this.displayState.cyclePosition;
     this.displayState.isRunning = message.isRunning;
     
+    // timeLeftも同期（特に一時停止時に重要）
+    if (message.timeLeft !== undefined) {
+      this.displayState.timeLeft = message.timeLeft;
+    }
+    
     this.updateDisplay();
   }
 
@@ -216,13 +224,19 @@ export class PomodoroTimer {
   }
 
   private calculateDisplayTimeLeft(): number {
-    if (!this.displayState.endTime || !this.displayState.isRunning) {
-      return PomodoroTimer.getSessionDuration(this.displayState.sessionType);
+    if (!this.displayState.isRunning) {
+      // 一時停止中はバックグラウンドから同期された残り時間を表示
+      return this.displayState.timeLeft;
     }
-
-    // endTime基準の精密計算（累積誤差なし）
-    const now = Date.now();
-    return Math.max(0, Math.ceil((this.displayState.endTime - now) / 1000));
+    
+    if (this.displayState.endTime) {
+      // 実行中はendTime基準の精密計算（累積誤差なし）
+      const now = Date.now();
+      return Math.max(0, Math.ceil((this.displayState.endTime - now) / 1000));
+    }
+    
+    // endTimeがない場合（初期状態など）はtimeLeftを使用
+    return this.displayState.timeLeft;
   }
 
   private async setTimeAndStart(timeInSeconds: number): Promise<void> {
