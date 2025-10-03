@@ -1,459 +1,237 @@
-# ポモドーロタイマー アーキテクチャ提案書
+# 案2A改: バックグラウンド主導 + ポップアップ表示分離型
 
 ## 概要
 
-本文書では、Chrome拡張機能ポモドーロタイマー（pomobop）の設計について、4つのアーキテクチャ案を検討し、それぞれのメリット・デメリットを分析します。
+Chrome拡張機能ポモドーロタイマー（pomobop）において、**バックグラウンドで完全な状態管理を行いつつ、1秒刻みのカウントダウン表示のみポップアップ側で実現する**アーキテクチャ案です。
 
-## 現在のアーキテクチャの問題点
+案2A（バックグラウンド完全主導型）をベースに、Chrome拡張の制約を回避しながら、リアルタイム表示を実現します。
 
-### 問題
-1. **責任の分散**: ポップアップとバックグラウンドの両方で完了処理
-2. **複雑な協調メカニズム**: フラグ(`pomodoroCompletedByPopup`)で重複防止
-3. **状態の重複**: 2つの`TimerState`インターフェース（popup.ts と background.ts）
-4. **テスタビリティ**: バックグラウンドとポップアップの相互作用が複雑
+## 基本設計思想
 
-### 症状
-- タイマー完了時にポップアップが二重に開かれる
-- 状態遷移が正常に動作しない場合がある
-- 競合状態による予期しない動作
+- **バックグラウンド**: 全ての状態管理、ビジネスロジック、確実な完了検知
+- **ポップアップ**: 表示専用 + ローカル1秒刻みタイマー
+- **通信**: chrome.runtime.sendMessage（コマンド）+ chrome.storage.onChanged（状態同期）+ 30秒定期同期
 
-## アーキテクチャ案
+## アーキテクチャ図
 
----
-
-## 案1: ポップアップ主導型 👑 **推奨**
-
-### 概要
-ポップアップで全ての状態管理・完了処理を行い、バックグラウンドは純粋にalarms APIの橋渡しのみを担当する。
-
-### アーキテクチャ図
-```
-┌─────────────────┐    ┌─────────────────┐
-│   popup.ts      │    │  background.ts  │
-│ ・状態管理      │    │ ・alarms API    │
-│ ・UI更新        │◄───┤ ・イベント転送  │
-│ ・完了処理      │    │                 │
-│ ・通知タブ開く  │    │                 │
-└─────────────────┘    └─────────────────┘
-```
-
-### 実装方針
-```typescript
-// popup.ts - 全ての責任を持つ
-class PomodoroTimer {
-  private state: TimerState;
-  private intervalId: number | null = null;
-
-  // タイマー制御
-  start(): void;
-  pause(): void;
-  complete(): void;
-
-  // 状態管理
-  private updateState(): void;
-  private saveState(): void;
-
-  // UI更新
-  private updateDisplay(): void;
-  private updateButtons(): void;
-}
-
-// background.ts - 最小限のアラーム橋渡し
-class BackgroundTimer {
-  // alarms APIイベントをポップアップに通知するだけ
-  private handleAlarm(): void {
-    // ポップアップに完了を通知
-    // または直接通知タブを開く（バックアップ）
-  }
-}
-```
-
-### メリット
-- ✅ **シンプル**: 1つのクラスで全ロジック管理
-- ✅ **テスタブル**: ポップアップ単体でテスト可能
-- ✅ **デバッグ容易**: 状態変更が1箇所に集約
-- ✅ **競合なし**: 複数箇所での状態変更がない
-- ✅ **高レスポンス**: ユーザー操作への即座の反応
-- ✅ **Chrome拡張のベストプラクティス**: ポップアップ主導が一般的
-
-### デメリット
-- ⚠️ **ポップアップ閉鎖時**: ブラウザが閉じている時は完了処理されない
-- ⚠️ **通知遅延**: ポップアップが開かれるまで通知されない
-
-### 対策
-```typescript
-// バックアップアラームで対策
-async start() {
-  // ポップアップでのタイマー開始
-  this.startLocalTimer();
-
-  // バックアップアラーム設定（ポップアップ閉鎖時用）
-  const endTime = Date.now() + (this.state.timeLeft * 1000);
-  await chrome.alarms.create('backup', { when: endTime });
-}
-```
-
----
-
-## 案2: バックグラウンド主導型
-
-### 概要
-バックグラウンドで全ての状態管理を行い、ポップアップは表示のみを担当する。
-
-### アーキテクチャ図
-```
-┌─────────────────┐    ┌─────────────────┐
-│   popup.ts      │    │  background.ts  │
-│ ・UI表示のみ    │◄───┤ ・状態管理      │
-│ ・ユーザー操作  │────►│ ・完了処理      │
-│   転送          │    │ ・通知タブ開く  │
-└─────────────────┘    └─────────────────┘
-```
-
-### 通信メカニズム
-```typescript
-// popup.ts → background.ts (コマンド)
-chrome.runtime.sendMessage({ type: 'START_TIMER' });
-
-// background.ts → popup.ts (状態同期)
-chrome.storage.local.set({ pomodoroState: newState });
-chrome.storage.onChanged.addListener(/* popup側で監視 */);
-```
-
-### メリット
-- ✅ **確実性**: ブラウザ閉鎖時も動作
-- ✅ **一元管理**: 状態がバックグラウンドに集約
-- ✅ **スケーラビリティ**: 複数UIから同じサービス利用可能
-- ✅ **ビジネスロジック分離**: UIとロジックが完全分離
-
-### デメリット
-- ❌ **複雑**: ポップアップ↔バックグラウンド間の通信が複雑
-- ❌ **テスト困難**: 2つのコンポーネント間の相互作用をテスト
-- ❌ **レスポンス性**: ユーザー操作のレスポンスが遅い可能性
-- ❌ **エラーハンドリング**: エラー発生箇所が複数
-
-### 課題: タイマー更新の問題
-
-#### アプローチA: バックグラウンドで毎秒更新
-```typescript
-// background.ts
-setInterval(() => {
-  this.state.timeLeft--;
-  chrome.storage.local.set({ pomodoroState: this.state }); // 毎秒書き込み
-}, 1000);
-```
-
-**問題**:
-- 💥 **パフォーマンス悪化**: 毎秒chrome.storage書き込み
-- 💥 **ポップアップのラグ**: storage→popup更新で遅延
-- 💥 **バッテリー消耗**: Service Workerが常時動作
-
-#### アプローチB: ポップアップで表示更新
-```typescript
-// popup.ts - 表示用タイマー
-setInterval(() => {
-  this.displayTime--;
-  this.updateDisplay();
-}, 1000);
-
-// background.ts - 完了判定のみ
-chrome.alarms.create('completion', { when: endTime });
-```
-
-**問題**:
-- 💥 **同期ズレ**: ポップアップとバックグラウンドで時間が異なる
-- 💥 **複雑な同期**: どちらが正しい時間？
-
----
-
-## 案2A: バックグラウンド完全主導型（詳細版）
-
-### 基本思想
-「バックグラウンドがすべての状態とタイミングを管理し、ポップアップは単純なビューアー」
-
-### 詳細アーキテクチャ
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    popup.ts (Pure View)                    │
+│              popup.ts (View + Local Display)               │
 ├─────────────────────────────────────────────────────────────┤
-│ class PomodoroPopup {                                       │
-│   // 状態なし - 完全にstateless                              │
-│   render(state: TimerState): void                          │
-│   onUserAction(action: string): void                       │
-│ }                                                           │
+│ ・1秒刻みローカル表示タイマー（endTime基準計算）              │
+│ ・ユーザー操作転送（chrome.runtime.sendMessage）            │
+│ ・30秒ごとの表示補正                                        │
+│ ・chrome.storage.onChanged監視                             │
 └─────────────────┬───────────────────────┬───────────────────┘
                   │                       │
             Commands │                       │ State Updates
       (chrome.runtime.sendMessage)          │ (chrome.storage.onChanged)
-                  │                       │
+                  │                       │ + 30秒同期
                   ▼                       ▲
 ┌─────────────────────────────────────────────────────────────┐
-│                background.ts (Complete Logic)               │
+│           background.ts (Complete State Manager)           │
 ├─────────────────────────────────────────────────────────────┤
-│ class PomodoroService {                                     │
-│   // 全状態管理                                              │
-│   private state: TimerState                                 │
-│   private intervalId: number | null                         │
-│                                                             │
-│   // タイマー制御                                            │
-│   startTimer(): void                                        │
-│   pauseTimer(): void                                        │
-│   resetTimer(): void                                        │
-│                                                             │
-│   // 毎秒更新                                               │
-│   private tick(): void                                      │
-│   private scheduleNextTick(): void                          │
-│                                                             │
-│   // 状態同期                                               │
-│   private saveAndBroadcast(): void                         │
-│ }                                                           │
+│ ・全ての状態管理（開始時刻ベース）                            │
+│ ・chrome.alarms: タイマー完了 + 30秒同期                    │
+│ ・セッション遷移ロジック                                    │
+│ ・30秒ごとの軽量状態ブロードキャスト                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 実装例
+## 状態管理設計
 
-#### background.ts
-```typescript
-class PomodoroService {
-  private state: TimerState = {
-    timeLeft: 25 * 60,
-    isRunning: false,
-    sessionType: 'work',
-    cyclePosition: 1,
-    lastUpdateTime: Date.now()
-  };
+### バックグラウンド：完全な状態管理
+- **時刻ベース状態管理**: 開始時刻、終了予定時刻、一時停止時刻、累積一時停止時間
+- **セッション情報**: セッション種別（work/shortBreak/longBreak）、サイクル位置（1-8）
+- **制御状態**: 実行状態、最終更新時刻
 
-  private intervalId: number | null = null;
+### ポップアップ：表示専用ローカル状態
+- **表示計算用状態**: 表示計算用終了時刻（真実の状態ではない）
+- **UI表示用**: 実行状態、セッション種別、サイクル位置
 
-  startTimer(): void {
-    this.state.isRunning = true;
-    this.state.lastUpdateTime = Date.now();
-    this.scheduleNextTick();
-    this.saveAndBroadcast();
-  }
+## 責任分担
 
-  private scheduleNextTick(): void {
-    if (!this.state.isRunning) return;
+### background.ts の責任
+1. **完全な状態管理**: 全ての状態をメモリ + chrome.storage で管理
+2. **chrome.alarms管理**: タイマー完了検知 + 30秒定期同期
+3. **セッション遷移**: ポモドーロサイクルのロジック
+4. **コマンド処理**: ポップアップからのstart/pause/reset
+5. **定期同期**: 30秒ごとの軽量状態ブロードキャスト
 
-    this.intervalId = setTimeout(() => {
-      this.tick();
-      this.scheduleNextTick();
-    }, 1000);
-  }
+### popup.ts の責任
+1. **1秒刻み表示**: endTime基準のリアルタイム計算
+2. **ユーザー操作**: バックグラウンドへのコマンド転送
+3. **状態同期**: chrome.storage.onChanged + 30秒同期の受信
+4. **表示更新**: UI要素の更新のみ
 
-  private tick(): void {
-    this.state.timeLeft--;
-    this.state.lastUpdateTime = Date.now();
+## 同期メカニズム
 
-    if (this.state.timeLeft <= 0) {
-      this.completeSession();
-    } else {
-      this.saveAndBroadcast(); // 毎秒storage書き込み
-    }
-  }
+### 1. コマンド送信（popup → background）
+- **ポップアップ**: chrome.runtime.sendMessage でコマンド送信
+- **バックグラウンド**: onMessage.addListener でSTART/PAUSE/RESETコマンドを処理
 
-  private async saveAndBroadcast(): Promise<void> {
-    await chrome.storage.local.set({ pomodoroState: this.state });
-  }
-}
+### 2. 状態変更時同期（background → popup）
+- **バックグラウンド**: chrome.storage.local.set で状態保存・ブロードキャスト
+- **ポップアップ**: chrome.storage.onChanged で状態変更を監視・同期
+
+### 3. 30秒定期同期（background → popup）
+- **chrome.alarms**: 30秒間隔（0.5分）で定期実行設定
+- **軽量同期**: storageを使わずruntime.sendMessageで直接送信
+- **エラーハンドリング**: ポップアップ未開時は例外を無視
+
+## 表示更新システム
+
+### ポップアップでの1秒刻み表示
+- **表示ループ**: setInterval による1秒間隔の表示更新
+- **時間計算**: endTime基準の精密計算（累積誤差なし）
+- **表示フォーマット**: MM:SS形式でのリアルタイム表示
+- **状態判定**: isRunning状態に応じた適切な表示切り替え
+
+### バックグラウンドでの状態計算
+- **endTime基準**: 統一された時刻計算ロジック
+- **一時停止対応**: pausedAt時刻での残り時間計算
+- **実行状態管理**: isRunning状態に応じた計算分岐
+- **精度保証**: Math.ceil による秒単位での正確な計算
+
+## Chrome制約の回避方法
+
+### Service Worker 30秒アイドル停止への対応
+- **chrome.alarms活用**: タイマー完了時刻での単発アラーム設定
+- **30秒同期のみ**: 状態同期用の定期アラーム（Service Worker延命は副次効果）
+- **確実な完了検知**: ブラウザ閉鎖時もchrome.alarmsでタイマー完了を検知
+
+### chrome.runtime.sendMessage 断絶への対応
+- **複数同期チャネル**:
+  1. メッセージ送信（ポップアップ開いている時）
+  2. chrome.storage.onChanged（確実な同期）
+  3. 初期化時の状態取得（GET_STATE）
+
+### 表示遅延への対応
+- **ローカル表示更新**: 遅延なしの即座な表示計算
+- **定期補正**: 30秒ごとの同期で精度確保
+- **ズレ検知**: 2秒以上のズレ時に自動補正
+
+## 動作フロー
+
+### 1. タイマー開始時
+```
+1. ユーザークリック → popup.sendCommand('START_TIMER')
+2. background.startTimer() → 状態計算 + chrome.alarms設定
+3. chrome.storage.local.set() → popup.syncDisplayState()
+4. popup: 1秒刻みローカル表示開始
 ```
 
-#### popup.ts
-```typescript
-class PomodoroPopup {
-  private initializeStorageListener(): void {
-    chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace === 'local' && changes.pomodoroState) {
-        this.render(changes.pomodoroState.newValue);
-      }
-    });
-  }
-
-  private async sendCommand(command: string): Promise<void> {
-    await chrome.runtime.sendMessage({ type: command });
-  }
-
-  private render(state: TimerState): void {
-    this.updateTimeDisplay(state.timeLeft);
-    this.updateButtons(state.isRunning);
-  }
-}
+### 2. 実行中
+```
+1. popup: endTimeから毎秒リアルタイム計算表示
+2. background: 30秒ごとに軽量同期メッセージ送信
+3. 両方で独立して時間計算（同じendTime基準）
+4. 30秒ごとに表示補正で精度確保
 ```
 
-### 重大な問題点
-
-#### パフォーマンス問題
-```typescript
-// 25分タイマーの場合
-// 25分 × 60秒 = 1500回のdisk書き込み
-// → バッテリー消耗、I/O負荷
-
-// Chrome storage quota制限
-// 毎秒書き込みは推奨されない
+### 3. 一時停止・再開
+```
+1. ユーザー操作 → popup.sendCommand('PAUSE_TIMER')
+2. background: pausedAt記録 + アラームクリア
+3. chrome.storage更新 → popup表示同期
+4. 再開時: endTime調整 + アラーム再設定
 ```
 
-#### Service Worker制約
-```typescript
-// Chrome Service Worker は30秒でアイドル停止
-// setInterval/setTimeout が途中で止まる
-// → タイマー精度に問題
+### 4. 完了時
+```
+1. chrome.alarms発火 → background.handleTimerComplete()
+2. 通知タブ表示 + セッション遷移
+3. chrome.storage更新 → popup表示同期
+4. 新しいセッションでUI更新
 ```
 
-#### レスポンス遅延
-```
-ユーザークリック → sendMessage → background処理 → storage書き込み → popup更新
-     即座              5ms          1ms           10ms          5ms
-                               合計遅延: 21ms
-```
+## メリット
 
----
+### ✅ **案2Aの堅牢性を維持**
+- **バックグラウンドで完全な状態管理**: 単一真実のソース
+- **chrome.alarms による確実な完了検知**: ブラウザ閉鎖時も動作
+- **セッション遷移の一元管理**: ビジネスロジックが集約
 
-## 案3: イベント駆動型
+### ✅ **1秒カウントダウン表示を実現**
+- **ポップアップで滑らかな表示更新**: 遅延なし
+- **endTime基準の精密計算**: 累積誤差なし
+- **即座のユーザーフィードバック**: 操作レスポンス良好
 
-### 概要
-カスタムイベントで疎結合にする。
+### ✅ **Chrome制約を完全回避**
+- **30秒同期でService Worker制約回避**: chrome.alarms活用
+- **複数同期チャネル**: 断絶に対する冗長性
+- **軽量メッセージング**: I/O負荷最小化
 
-### アーキテクチャ図
-```
-┌─────────────────┐    ┌─────────────────┐
-│   popup.ts      │    │  background.ts  │
-│ ・UI管理        │    │ ・alarms管理    │
-│ ・ローカル状態  │    │ ・永続化        │
-└─────┬───────────┘    └─────┬───────────┘
-      │                        │
-      └────────┐    ┌──────────┘
-               │    │
-        ┌──────▼────▼──────┐
-        │   Event Bus      │
-        │ ・timer_complete │
-        │ ・timer_start    │
-        │ ・timer_pause    │
-        └──────────────────┘
-```
+### ✅ **高い精度と信頼性**
+- **定期補正**: 30秒ごとの同期で表示ズレ防止
+- **二重検知システム**: ポップアップ + バックグラウンド
+- **状態復元**: ポップアップ再開時の正確な状態同期
 
-### メリット
-- ✅ **疎結合**: コンポーネント間の依存が少ない
-- ✅ **拡張性**: 新機能追加が容易
-- ✅ **テスタブル**: 各コンポーネントを独立テスト可能
+## デメリット
 
-### デメリット
-- ❌ **複雑性**: イベント管理が複雑
-- ❌ **デバッグ困難**: イベントフローの追跡が困難
-- ❌ **オーバーエンジニアリング**: 小規模アプリには過剰
+### ⚠️ **実装の複雑性**
+- **2つの計算系統**: バックグラウンド（真実）+ ポップアップ（表示）
+- **同期ロジック**: 複数チャネルの管理が必要
+- **状態管理**: 真実の状態 vs 表示用状態の分離
 
----
+### ⚠️ **軽微な表示ズレ**
+- **30秒間隔補正**: 最大1-2秒の表示ズレ可能性
+- **ネットワーク遅延**: メッセージパッシングの遅延
+- **計算誤差**: 丸め処理による微細な差異
 
-## 案4: ハイブリッド型（現在の改良版）
+### ⚠️ **Chrome API依存**
+- **chrome.runtime.sendMessage**: Service Worker状態に依存
+- **chrome.alarms**: システムリソースに依存
+- **chrome.storage**: 書き込み/読み込み遅延
 
-### 概要
-現在の構造を整理し、明確な責任分離を行う。
+### ⚠️ **テスト複雑性**
+- **統合テスト**: 2つのコンポーネント間の相互作用
+- **タイミング依存**: 非同期処理のテスト
+- **モック設定**: Chrome API群の複雑なモック
 
-### アーキテクチャ図
-```
-┌─────────────────┐    ┌─────────────────┐
-│   popup.ts      │    │  background.ts  │
-│ ・状態管理      │◄───┤ ・永続化        │
-│ ・UI更新        │────►│ ・alarms管理    │
-│ ・セッション遷移│    │ ・通知タブ      │
-└─────────────────┘    └─────────────────┘
-```
+## 実装時の注意点
 
-### 実装方針
-```typescript
-// popup.ts - メイン処理
-class PomodoroTimer {
-  async complete(): Promise<void> {
-    await this.moveToNextSession();
+### 時刻計算の統一
+- **統一計算式**: バックグラウンドとポップアップで同じ計算ロジック使用
+- **endTime基準**: 絶対時刻ベースでの一貫した時間計算
 
-    // バックグラウンドに完了通知
-    await chrome.storage.local.set({
-      pomodoroCompletedByPopup: true
-    });
-  }
-}
+### エラーハンドリング
+- **メッセージ送信失敗**: Service Worker停止時の例外を適切に処理
+- **通信断絶対応**: 複数チャネルでの冗長性確保
 
-// background.ts - 補助処理
-class BackgroundTimer {
-  async handleTimerComplete(): Promise<void> {
-    const completed = await chrome.storage.local.get('pomodoroCompletedByPopup');
+### 同期タイミングの調整
+- **30秒間隔**: chrome.alarmsの最小値（0.5分）を使用
+- **適切な頻度**: パフォーマンスと精度のバランス
 
-    if (completed.pomodoroCompletedByPopup) {
-      // ポップアップが処理済み → 通知タブのみ
-      await this.showNotification();
-      await chrome.storage.local.remove('pomodoroCompletedByPopup');
-    } else {
-      // ポップアップが処理してない → 完全処理
-      await this.showNotification();
-      await this.resetState();
-    }
-  }
-}
-```
+### メモリリーク防止
+- **ポップアップ閉鎖時**: beforeunloadでsetIntervalクリーンアップ
+- **リソース管理**: 適切なライフサイクル管理
 
-### メリット
-- ✅ **現実的**: 現在のコードを活かせる
-- ✅ **段階的改善**: 少しずつ改善可能
-- ✅ **バランス**: シンプルさと確実性のバランス
+## 適用場面
 
-### デメリット
-- ⚠️ **複雑性残存**: 2箇所での処理は継続
-- ⚠️ **同期問題**: タイミング依存の問題が残る可能性
+### 案2A改が適している場合
+1. **エンタープライズ用途**: 状態の堅牢性が最重要
+2. **複数UI対応**: ポップアップ以外のUIも予定
+3. **チーム開発**: フロントエンドとバックエンドの分離
+4. **スケーラビリティ**: 将来的な機能拡張を見込む
+5. **確実性重視**: ブラウザ閉鎖時も確実に動作させたい
 
----
-
-## 比較表
-
-| 項目 | 案1<br/>ポップアップ主導 | 案2<br/>バックグラウンド主導 | 案2A<br/>完全バックグラウンド | 案3<br/>イベント駆動 | 案4<br/>ハイブリッド |
-|------|---------|---------|---------|---------|---------|
-| **シンプルさ** | ⭐⭐⭐ | ⭐ | ⭐ | ⭐ | ⭐⭐ |
-| **確実性** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **レスポンス性** | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **テスタビリティ** | ⭐⭐⭐ | ⭐ | ⭐ | ⭐⭐ | ⭐⭐ |
-| **パフォーマンス** | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **保守性** | ⭐⭐⭐ | ⭐ | ⭐ | ⭐⭐ | ⭐⭐ |
-| **実装コスト** | 低 | 中 | 高 | 高 | 低 |
-
-## 推奨案と理由
-
-### 🏆 推奨: **案1 - ポップアップ主導型**
-
-#### 理由
-1. **Chrome拡張の特性に適合**: ポップアップが主要UI
-2. **シンプルで理解しやすい**: 1つのクラスで状態管理
-3. **高いレスポンス性**: ユーザー操作への即座の反応
-4. **テストが容易**: 単一コンポーネントでのテスト
-5. **現実的**: Chrome拡張のベストプラクティス
-
-#### 実装の方向性
-```typescript
-class PomodoroTimer {
-  // メイン処理：ポップアップで全て管理
-  // バックアップ：chrome.alarmsで保険
-
-  async start() {
-    this.startLocalTimer();
-    await chrome.alarms.create('backup', { when: this.endTime });
-  }
-}
-```
-
-### 次点: **案4 - ハイブリッド型**
-現在のコードベースから段階的に改善する場合の選択肢。
-
-## Chrome拡張開発のベストプラクティス
-
-### 推奨パターン
-1. **ポップアップ主導** + **chrome.alarms バックアップ**
-2. **最小限のService Worker**
-3. **chrome.storage は状態永続化のみ**
-
-### 避けるべきパターン
-1. **Service Workerでの頻繁なsetInterval**
-2. **毎秒のchrome.storage書き込み**
-3. **複雑なコンポーネント間通信**
+### 案2A改が不適切な場合
+1. **シンプルなタイマー**: 基本的な機能のみ
+2. **小規模チーム**: 1-2人での開発
+3. **プロトタイピング**: 迅速な開発・検証が必要
+4. **レスポンス性最重視**: 複雑性よりもUXを優先
 
 ## 結論
 
-ポモドーロタイマーのような**リアルタイム性が重要な小規模アプリケーション**では、**案1（ポップアップ主導型）**が最も適しています。
+**案2A改は、バックグラウンド主導の堅牢性と1秒刻み表示を両立する技術的に洗練されたアーキテクチャです。**
 
-シンプルで確実、そしてChrome拡張の特性を活かした設計により、保守性とユーザー体験の両方を実現できます。
+Chrome拡張の制約を巧みに回避しながら、企業レベルの信頼性とユーザー体験を実現できます。ただし、実装の複雑性とテストの困難さを考慮し、要件に応じて採用を検討する必要があります。
+
+### 主な特徴
+- ✅ **Chrome制約の完全回避**: 30秒同期による制約回避
+- ✅ **企業レベルの堅牢性**: バックグラウンドでの確実な状態管理
+- ✅ **優れたUX**: 1秒刻みの滑らかな表示
+- ⚠️ **実装複雑性**: 高度な設計・実装スキル要求
+
+適切な要件と開発リソースがあれば、非常に優秀なアーキテクチャ選択肢となります。
