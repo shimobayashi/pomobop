@@ -123,11 +123,16 @@ export class PomodoroTimer {
 
   private async initializeFromBackground(): Promise<void> {
     // まずstorageから直接読み込み（確実な方法）
-    const result = await chrome.storage.local.get('pomodoroState');
-    if (result.pomodoroState) {
-      this.syncDisplayState(result.pomodoroState);
+    try {
+      const result = await chrome.storage.local.get('pomodoroState');
+      if (result.pomodoroState) {
+        this.syncDisplayState(result.pomodoroState);
+      }
+    } catch (error) {
+      console.log('Failed to load initial state from storage:', error);
+      // storageエラー時はデフォルト状態を保持
     }
-    
+
     // バックグラウンドからの状態取得を試行（バックグラウンドが起動していない場合は失敗する）
     try {
       await this.sendCommand('GET_STATE');

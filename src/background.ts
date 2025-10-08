@@ -40,7 +40,11 @@ export class BackgroundTimer {
   private async init(): Promise<void> {
     // コマンドメッセージの監視
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      this.handleCommand(message);
+      // 非同期処理を適切に処理
+      this.handleCommand(message).catch(error => {
+        console.error('Failed to handle command:', error);
+      });
+      return true; // 非同期レスポンスを示す
     });
 
     // アラームの監視

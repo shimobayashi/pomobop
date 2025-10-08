@@ -1,25 +1,30 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { PomodoroTimer } from './popup'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { PomodoroTimer } from './popup';
 
-// Chrome Storage APIのモック
-const mockStorage = {
-  local: {
-    get: vi.fn().mockResolvedValue({}),
-    set: vi.fn().mockResolvedValue(undefined)
-  }
+// Chrome API モック
+const mockChrome = {
+  storage: {
+    local: {
+      get: vi.fn(),
+      set: vi.fn(),
+    },
+    onChanged: {
+      addListener: vi.fn(),
+    },
+  },
+  runtime: {
+    sendMessage: vi.fn(),
+    onMessage: {
+      addListener: vi.fn(),
+    },
+  },
 };
 
-// Chromeオブジェクトのモック
-Object.defineProperty(global, 'chrome', {
-  value: {
-    storage: mockStorage
-  },
-  writable: true,
-  configurable: true
-});
+// グローバルなchromeオブジェクトをモック
+global.chrome = mockChrome as any;
 
-describe('PomodoroTimer', () => {
-  let timer: PomodoroTimer
+describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
+  let timer: PomodoroTimer;
 
   beforeEach(() => {
     // HTMLをセットアップ
@@ -33,580 +38,488 @@ describe('PomodoroTimer', () => {
       <button id="preset15">15分</button>
       <button id="preset5">5分</button>
       <button id="preset1sec">1秒テスト</button>
-    `
-    
-    // モックをリセット
-    mockStorage.local.get.mockClear()
-    mockStorage.local.set.mockClear()
-    mockStorage.local.get.mockResolvedValue({}) // デフォルトで空の状態
+    `;
 
-    vi.useFakeTimers()
-  })
+    // モックをリセット
+    vi.clearAllMocks();
+
+    // デフォルトでstorageは空を返す
+    mockChrome.storage.local.get.mockResolvedValue({});
+    mockChrome.runtime.sendMessage.mockResolvedValue(undefined);
+  });
 
   afterEach(() => {
-    if (timer) {
-      timer.pause()
-    }
-    vi.useRealTimers()
-  })
+    vi.restoreAllMocks();
+  });
 
-  describe('初期化', () => {
-    it('デフォルトで25分に設定される', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(25 * 60)
-        expect(timer.getIsRunning()).toBe(false)
-      }, { timeout: 1000 })
-    })
+  describe('initialization', () => {
+    it('should initialize with default values', async () => {
+      timer = new PomodoroTimer();
 
-    it('表示が正しく初期化される', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => {
-        const display = document.getElementById('timerDisplay')
-        expect(display?.textContent).toBe('25:00')
-      }, { timeout: 1000 })
-    })
-  })
+      // 初期化完了を待つ（Promise.resolveで確実に待つ）
+      await Promise.resolve();
+      await Promise.resolve();
 
-  describe('プリセット機能', () => {
-    it('25分プリセットが動作する', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(25 * 60)
-      expect(timer.getTimeLeft()).toBe(25 * 60)
-    })
+      expect(timer.getTimeLeft()).toBe(25 * 60);
+      expect(timer.getIsRunning()).toBe(false);
+      expect(timer.getSessionType()).toBe('work');
+      expect(timer.getCyclePosition()).toBe(1);
+    });
 
-    it('15分プリセットが動作する', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(15 * 60)
-      expect(timer.getTimeLeft()).toBe(15 * 60)
-    })
+    it('should set up event listeners', () => {
+      timer = new PomodoroTimer();
 
-    it('5分プリセットが動作する', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(5 * 60)
-      expect(timer.getTimeLeft()).toBe(5 * 60)
-    })
+      expect(mockChrome.storage.onChanged.addListener).toHaveBeenCalled();
+      expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalled();
+    });
 
-    it('1秒プリセットが動作する', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(1)
-      expect(timer.getTimeLeft()).toBe(1)
-    })
-  })
+    it('should attempt to get initial state from background', async () => {
+      timer = new PomodoroTimer();
 
-  describe('タイマー操作', () => {
-    it('開始ボタンでタイマーが開始される', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.start()
-      expect(timer.getIsRunning()).toBe(true)
-      
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      expect(startBtn.disabled).toBe(true)
-      expect(pauseBtn.disabled).toBe(false)
-    })
+      // 初期化完了を待つ
+      await Promise.resolve();
+      await Promise.resolve();
 
-    it('一時停止ボタンでタイマーが停止される', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.start()
-      await timer.pause()
-      expect(timer.getIsRunning()).toBe(false)
-      
-      const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-      expect(startBtn.disabled).toBe(false)
-      expect(pauseBtn.disabled).toBe(true)
-    })
-  })
+      const sendMessageCalls = mockChrome.runtime.sendMessage.mock.calls;
+      const getStateCall = sendMessageCalls.find(call => call[0]?.type === 'GET_STATE');
+      expect(getStateCall).toBeDefined();
+    });
+  });
 
-  describe('タイマーのカウントダウン', () => {
-    it('実行中はプリセット変更できない', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.start()
-      const initialTime = timer.getTimeLeft()
-      await timer.setTimeSeconds(10 * 60)
-      expect(timer.getTimeLeft()).toBe(initialTime)
-    })
+  describe('display calculation', () => {
+    it('should show timeLeft when not running', async () => {
+      const mockState = {
+        timeLeft: 300,
+        isRunning: false,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: null,
+        startTime: null,
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: Date.now()
+      };
 
-    it('1秒経過で時間が減る', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(10)
-      await timer.start()
-      
-      vi.advanceTimersByTime(1000)
-      expect(timer.getTimeLeft()).toBe(9)
-    })
+      mockChrome.storage.local.get.mockResolvedValue({ pomodoroState: mockState });
+      timer = new PomodoroTimer();
 
-    it('複数秒経過で時間が減る', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(10)
-      await timer.start()
-      
-      vi.advanceTimersByTime(3000)
-      expect(timer.getTimeLeft()).toBe(7)
-    })
-  })
+      await Promise.resolve();
+      await Promise.resolve();
 
-  describe('タイマー完了', () => {
-    it('タイマーが0になると即座にリセットされる', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(2)
-      await timer.start()
-      
-      // 2秒経過でタイマー完了
-      vi.advanceTimersByTime(2000)
-      
-      // 非同期complete処理の完了を待つ
-      await vi.waitFor(() => {
-        // 作業完了後は短い休憩(5分)に遷移
-        expect(timer.getTimeLeft()).toBe(5 * 60) // 短い休憩に遷移
-        expect(timer.getIsRunning()).toBe(false)
-        expect(timer.getSessionType()).toBe('shortBreak')
-        expect(timer.getCyclePosition()).toBe(2)
+      expect(timer.getTimeLeft()).toBe(300);
 
-        const display = document.getElementById('timerDisplay')
-        expect(display?.textContent).toBe('05:00')
-      }, { timeout: 1000 })
-    })
+      const display = document.getElementById('timerDisplay');
+      expect(display?.textContent).toBe('05:00');
+    });
 
-    it('完了時にボタンが正しい状態になる', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.setTimeSeconds(1)
-      await timer.start()
-      
-      // 1秒経過でタイマー完了
-      vi.advanceTimersByTime(1000)
-      
-      // 完了処理の完了を待つ
-      await vi.waitFor(() => {
-        const startBtn = document.getElementById('startBtn') as HTMLButtonElement
-        const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement
-        
-        expect(startBtn.disabled).toBe(false)
-        expect(pauseBtn.disabled).toBe(true)
-      }, { timeout: 1000 })
-    })
-  })
+    it('should calculate time from endTime when running', async () => {
+      const now = Date.now();
+      const endTime = now + 300000; // 5分後
 
-  describe('状態の永続化', () => {
-    it('タイマー開始時に状態が保存される', async () => {
-      timer = new PomodoroTimer()
-      await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
-      
-      await timer.start()
-      
-      expect(mockStorage.local.set).toHaveBeenCalledWith({
-        pomodoroState: expect.objectContaining({
-          timeLeft: 25 * 60,
-          isRunning: true,
-          lastSaveTime: expect.any(Number)
-        })
-      })
-    })
+      const mockState = {
+        timeLeft: 300,
+        isRunning: true,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: endTime,
+        startTime: now,
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: now
+      };
 
-    it('停止中の状態が復元される', async () => {
-      mockStorage.local.get.mockResolvedValue({
-        pomodoroState: {
-          timeLeft: 15 * 60,
-          isRunning: false,
-          lastSaveTime: Date.now()
-        }
-      })
+      mockChrome.storage.local.get.mockResolvedValue({ pomodoroState: mockState });
 
-      timer = new PomodoroTimer()
-      
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(15 * 60)
-        expect(timer.getIsRunning()).toBe(false)
-      }, { timeout: 1000 })
-    })
+      // Date.nowをモック
+      vi.spyOn(Date, 'now').mockReturnValue(now);
 
-    it('実行中の状態が正しく復元される', async () => {
-      const saveTime = Date.now() - 5000
-      
-      mockStorage.local.get.mockResolvedValue({
-        pomodoroState: {
-          timeLeft: 10,
-          isRunning: true,
-          lastSaveTime: saveTime
-        }
-      })
+      timer = new PomodoroTimer();
 
-      timer = new PomodoroTimer()
-      
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(5)
-        expect(timer.getIsRunning()).toBe(true)
-      }, { timeout: 1000 })
-    })
+      await Promise.resolve();
+      await Promise.resolve();
 
-    it('時間切れの場合は即座にリセットされる', async () => {
-      const saveTime = Date.now() - 15000
-      
-      mockStorage.local.get.mockResolvedValue({
-        pomodoroState: {
-          timeLeft: 10,
-          isRunning: true,
-          lastSaveTime: saveTime
-        }
-      })
+      expect(timer.getTimeLeft()).toBe(300);
+    });
 
-      timer = new PomodoroTimer()
-      
-      await vi.waitFor(() => {
-        expect(timer.getTimeLeft()).toBe(25 * 60) // 即座にリセット
-        expect(timer.getIsRunning()).toBe(false)
-      }, { timeout: 1000 })
-    })
-  })
+    it('should start display loop when running', async () => {
+      vi.useFakeTimers();
 
-  describe('ポモドーロサイクル機能', () => {
-    describe('初期状態', () => {
-      it('デフォルトで作業セッション、cyclePosition=1', async () => {
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(timer.getTimeLeft()).toBe(25 * 60)
-          expect(timer.getSessionType()).toBe('work')
-          expect(timer.getCyclePosition()).toBe(1)
-        }, { timeout: 1000 })
-      })
+      const mockState = {
+        timeLeft: 300,
+        isRunning: true,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: Date.now() + 300000,
+        startTime: Date.now(),
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: Date.now()
+      };
 
-      it('初期状態で作業セッションUIが表示される', async () => {
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          const sessionTypeElement = document.getElementById('sessionType')
-          const progressDotsElement = document.getElementById('progressDots')
-          expect(sessionTypeElement?.textContent).toBe('作業中')
-          // HTMLで表示されるため、内容を確認
-          expect(progressDotsElement?.innerHTML).toContain('●')
-          expect(progressDotsElement?.innerHTML).toContain('progress-work-done')
-        }, { timeout: 1000 })
-      })
-    })
+      mockChrome.storage.local.get.mockResolvedValue({ pomodoroState: mockState });
+      timer = new PomodoroTimer();
 
-    describe('セッション種別の決定', () => {
-      it('cyclePosition 1,3,5,7 は作業セッション', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionTypeFromPosition(1)).toBe('work')
-        expect(PomodoroTimer.getSessionTypeFromPosition(3)).toBe('work')
-        expect(PomodoroTimer.getSessionTypeFromPosition(5)).toBe('work')
-        expect(PomodoroTimer.getSessionTypeFromPosition(7)).toBe('work')
-      })
+      await Promise.resolve();
+      await Promise.resolve();
 
-      it('cyclePosition 2,4,6 は短い休憩', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionTypeFromPosition(2)).toBe('shortBreak')
-        expect(PomodoroTimer.getSessionTypeFromPosition(4)).toBe('shortBreak')
-        expect(PomodoroTimer.getSessionTypeFromPosition(6)).toBe('shortBreak')
-      })
+      expect(timer.getIsRunning()).toBe(true);
 
-      it('cyclePosition 8 は長い休憩', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionTypeFromPosition(8)).toBe('longBreak')
-      })
-    })
+      // 1秒進める
+      vi.advanceTimersByTime(1000);
 
-    describe('セッション時間の決定', () => {
-      it('作業セッションは25分', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionDuration('work')).toBe(25 * 60)
-      })
+      // 表示が更新されることを確認（タイマーループが動作）
+      const display = document.getElementById('timerDisplay');
+      expect(display?.textContent).not.toBe('25:00'); // 初期値から変わっている
 
-      it('短い休憩は5分', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionDuration('shortBreak')).toBe(5 * 60)
-      })
+      vi.useRealTimers();
+    });
+  });
 
-      it('長い休憩は15分', () => {
-        timer = new PomodoroTimer()
-        expect(PomodoroTimer.getSessionDuration('longBreak')).toBe(15 * 60)
-      })
-    })
+  describe('command sending', () => {
+    beforeEach(async () => {
+      timer = new PomodoroTimer();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.clearAllMocks(); // 初期化時のsendMessage呼び出しをクリア
+    });
 
-    describe('サイクル遷移', () => {
-      it('作業セッション完了後、短い休憩に遷移', async () => {
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => timer.getTimeLeft() === 25 * 60, { timeout: 1000 })
+    it('should send START_TIMER command when start button clicked', async () => {
+      const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
+      startBtn.click();
 
-        // position=1 (work) で開始
-        await timer.setTimeSeconds(1)
-        await timer.start()
+      await new Promise(resolve => setTimeout(resolve, 10));
 
-        // 完了まで進める
-        vi.advanceTimersByTime(1000)
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
+        type: 'START_TIMER'
+      });
+    });
 
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(2)
-          expect(timer.getSessionType()).toBe('shortBreak')
-          expect(timer.getTimeLeft()).toBe(5 * 60)
-        }, { timeout: 1000 })
-      })
+    it('should send PAUSE_TIMER command when pause button clicked', async () => {
+      // まず実行中の状態を設定
+      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement;
+      pauseBtn.disabled = false; // ボタンを有効化
 
-      it('短い休憩完了後、作業セッションに遷移', async () => {
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 1,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'shortBreak',
-            cyclePosition: 2
-          }
-        })
+      pauseBtn.click();
 
-        timer = new PomodoroTimer()
-        await timer.start()
+      await new Promise(resolve => setTimeout(resolve, 10));
 
-        vi.advanceTimersByTime(1000)
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
+        type: 'PAUSE_TIMER'
+      });
+    });
 
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(3)
-          expect(timer.getSessionType()).toBe('work')
-          expect(timer.getTimeLeft()).toBe(25 * 60)
-        }, { timeout: 1000 })
-      })
+    it('should send preset commands when preset buttons clicked', async () => {
+      const preset25Btn = document.getElementById('preset25') as HTMLButtonElement;
+      preset25Btn.click();
 
-      it('position=8完了後position=1に戻る', async () => {
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 1,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'longBreak',
-            cyclePosition: 8
-          }
-        })
+      await new Promise(resolve => setTimeout(resolve, 10));
 
-        timer = new PomodoroTimer()
-        await timer.start()
+      // プリセットボタンは RESET_TIMER → SET_TIME → START_TIMER の順で送信
+      const calls = mockChrome.runtime.sendMessage.mock.calls;
+      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 25 * 60 }]);
+      expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
+    });
 
-        vi.advanceTimersByTime(1000)
+    it('should handle send command errors gracefully', async () => {
+      mockChrome.runtime.sendMessage.mockRejectedValue(new Error('Could not establish connection'));
 
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(1)
-          expect(timer.getSessionType()).toBe('work')
-          expect(timer.getTimeLeft()).toBe(25 * 60)
-        }, { timeout: 1000 })
-      })
-    })
+      const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
+      startBtn.click();
 
-    describe('プリセットボタンのサイクルリセット', () => {
-      it('プリセットボタンでサイクルがリセットされる', async () => {
-        // サイクル途中の状態を設定
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 5 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'shortBreak',
-            cyclePosition: 4
-          }
-        })
+      await new Promise(resolve => setTimeout(resolve, 10));
 
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(4)
-          expect(timer.getSessionType()).toBe('shortBreak')
-        }, { timeout: 1000 })
+      // エラーが発生してもアプリが停止しないことを確認
+      expect(timer.getIsRunning()).toBe(false); // 状態は変わらない
+    });
+  });
 
-        // プリセットボタンクリック
-        const preset15Btn = document.getElementById('preset15') as HTMLButtonElement
-        preset15Btn.click() // これが setTimeAndResetCycle(15 * 60) を呼び出す
+  describe('state synchronization', () => {
+    beforeEach(async () => {
+      timer = new PomodoroTimer();
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
 
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(1)
-          expect(timer.getSessionType()).toBe('work')
-          expect(timer.getTimeLeft()).toBe(15 * 60)
-          expect(timer.getIsRunning()).toBe(true) // 自動開始
-        }, { timeout: 1000 })
-      })
-    })
+    it('should sync state from chrome.storage.onChanged', () => {
+      const mockState = {
+        timeLeft: 600,
+        isRunning: true,
+        sessionType: 'shortBreak',
+        cyclePosition: 2,
+        endTime: Date.now() + 600000,
+        startTime: Date.now(),
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: Date.now()
+      };
 
-    describe('UI表示の更新', () => {
-      it('セッション種別がUIに正しく表示される', async () => {
-        const sessionTypeElement = document.getElementById('sessionType')
+      // storage.onChanged.addListenerに渡されたコールバックを取得
+      const storageChangeHandler = mockChrome.storage.onChanged.addListener.mock.calls[0][0];
 
-        // 作業セッション（初期状態）
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(sessionTypeElement?.textContent).toBe('作業中')
-        }, { timeout: 1000 })
+      // 状態変更をシミュレート
+      storageChangeHandler(
+        { pomodoroState: { newValue: mockState } },
+        'local'
+      );
 
-        // 短い休憩の状態をテスト
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 5 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'shortBreak',
-            cyclePosition: 2
-          }
-        })
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(sessionTypeElement?.textContent).toBe('短い休憩')
-        }, { timeout: 1000 })
+      expect(timer.getTimeLeft()).toBe(600);
+      expect(timer.getIsRunning()).toBe(true);
+      expect(timer.getSessionType()).toBe('shortBreak');
+      expect(timer.getCyclePosition()).toBe(2);
+    });
 
-        // 長い休憩の状態をテスト
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 15 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'longBreak',
-            cyclePosition: 8
-          }
-        })
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(sessionTypeElement?.textContent).toBe('長い休憩')
-        }, { timeout: 1000 })
-      })
+    it('should handle 30-second sync messages', () => {
+      const syncMessage = {
+        type: 'STATE_SYNC',
+        endTime: Date.now() + 300000,
+        sessionType: 'work',
+        cyclePosition: 1,
+        isRunning: true,
+        timeLeft: 300
+      };
 
-      it('進捗ドットが正しく表示される', async () => {
-        const progressDotsElement = document.getElementById('progressDots')
+      // runtime.onMessage.addListenerに渡されたコールバックを取得
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
 
-        // position 1（初期状態）
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          const html = progressDotsElement?.innerHTML || ''
-          // position 1: 作業完了(●)が1つ、残りは未完了
-          expect(html).toContain('progress-work-done')
-          expect(html).toContain('●')
-          // 短い休憩の未完了(△)があること
-          expect(html).toContain('progress-short-todo')
-          expect(html).toContain('△')
-        }, { timeout: 1000 })
+      // 同期メッセージをシミュレート
+      messageHandler(syncMessage, {}, () => {});
 
-        // position 3
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 25 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'work',
-            cyclePosition: 3
-          }
-        })
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          const html = progressDotsElement?.innerHTML || ''
-          // position 3: 3つ完了済み（作業2回+短休憩1回）
-          expect(html).toContain('progress-work-done')
-          expect(html).toContain('progress-short-done')
-          expect(html).toContain('▲') // 短い休憩完了
-        }, { timeout: 1000 })
+      expect(timer.getTimeLeft()).toBe(300);
+      expect(timer.getIsRunning()).toBe(true);
+    });
 
-        // position 8
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 15 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'longBreak',
-            cyclePosition: 8
-          }
-        })
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          const html = progressDotsElement?.innerHTML || ''
-          // position 8: 全て完了、長い休憩(◆)が含まれる
-          expect(html).toContain('progress-long-done')
-          expect(html).toContain('◆') // 長い休憩完了
-        }, { timeout: 1000 })
-      })
-    })
+    it('should correct display time when drift is detected', () => {
+      const now = Date.now();
+      const correctEndTime = now + 300000;
+      const driftedEndTime = now + 305000; // 5秒ずれ
 
-    describe('状態の永続化（サイクル対応）', () => {
-      it('サイクル状態が正しく保存される', async () => {
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 25 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'work',
-            cyclePosition: 3
-          }
-        })
+      // まず、ずれた状態を設定
+      timer['displayState'].endTime = driftedEndTime;
+      timer['displayState'].isRunning = true;
 
-        timer = new PomodoroTimer()
-        await vi.waitFor(() => {
-          expect(timer.getCyclePosition()).toBe(3)
-          expect(timer.getSessionType()).toBe('work')
-        }, { timeout: 1000 })
+      const mockState = {
+        timeLeft: 300,
+        isRunning: true,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: correctEndTime, // 正しい時刻
+        startTime: now,
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: now
+      };
 
-        await timer.start()
+      const storageChangeHandler = mockChrome.storage.onChanged.addListener.mock.calls[0][0];
+      storageChangeHandler(
+        { pomodoroState: { newValue: mockState } },
+        'local'
+      );
 
-        expect(mockStorage.local.set).toHaveBeenCalledWith({
-          pomodoroState: expect.objectContaining({
-            timeLeft: 25 * 60,
-            isRunning: true,
-            lastSaveTime: expect.any(Number),
-            sessionType: 'work',
-            cyclePosition: 3
-          })
-        })
-      })
+      // 2秒以上のずれなので補正されることを確認
+      expect(timer['displayState'].endTime).toBe(correctEndTime);
+    });
+  });
 
-      it('サイクル状態が復元される', async () => {
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 5 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now(),
-            sessionType: 'shortBreak',
-            cyclePosition: 6
-          }
-        })
+  describe('UI updates', () => {
+    beforeEach(async () => {
+      timer = new PomodoroTimer();
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
 
-        timer = new PomodoroTimer()
+    it('should update button states based on running status', () => {
+      const startBtn = document.getElementById('startBtn') as HTMLButtonElement;
+      const pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement;
 
-        await vi.waitFor(() => {
-          expect(timer.getTimeLeft()).toBe(5 * 60)
-          expect(timer.getSessionType()).toBe('shortBreak')
-          expect(timer.getCyclePosition()).toBe(6)
-        }, { timeout: 1000 })
-      })
+      // 停止状態
+      timer['displayState'].isRunning = false;
+      timer['updateButtonStates']();
 
-      it('古い状態データでもデフォルト値で動作する', async () => {
-        // sessionType、cyclePositionがない古いデータ
-        mockStorage.local.get.mockResolvedValue({
-          pomodoroState: {
-            timeLeft: 15 * 60,
-            isRunning: false,
-            lastSaveTime: Date.now()
-          }
-        })
+      expect(startBtn.disabled).toBe(false);
+      expect(pauseBtn.disabled).toBe(true);
 
-        timer = new PomodoroTimer()
+      // 実行状態
+      timer['displayState'].isRunning = true;
+      timer['updateButtonStates']();
 
-        await vi.waitFor(() => {
-          expect(timer.getTimeLeft()).toBe(15 * 60)
-          expect(timer.getSessionType()).toBe('work') // デフォルト値
-          expect(timer.getCyclePosition()).toBe(1) // デフォルト値
-        }, { timeout: 1000 })
-      })
-    })
-  })
-})
+      expect(startBtn.disabled).toBe(true);
+      expect(pauseBtn.disabled).toBe(false);
+    });
+
+    it('should update session type display', () => {
+      const sessionTypeElement = document.getElementById('sessionType');
+
+      timer['displayState'].sessionType = 'work';
+      timer['updateDisplay']();
+      expect(sessionTypeElement?.textContent).toBe('作業中');
+
+      timer['displayState'].sessionType = 'shortBreak';
+      timer['updateDisplay']();
+      expect(sessionTypeElement?.textContent).toBe('短い休憩');
+
+      timer['displayState'].sessionType = 'longBreak';
+      timer['updateDisplay']();
+      expect(sessionTypeElement?.textContent).toBe('長い休憩');
+    });
+
+    it('should update progress dots correctly', () => {
+      const progressDotsElement = document.getElementById('progressDots');
+
+      // サイクル位置1（作業中）
+      timer['displayState'].cyclePosition = 1;
+      timer['updateDisplay']();
+
+      const html1 = progressDotsElement?.innerHTML || '';
+      expect(html1).toContain('progress-work-done'); // 完了した作業
+      expect(html1).toContain('●');
+
+      // サイクル位置2（短い休憩）
+      timer['displayState'].cyclePosition = 2;
+      timer['updateDisplay']();
+
+      const html2 = progressDotsElement?.innerHTML || '';
+      expect(html2).toContain('progress-short-done'); // 完了した短い休憩
+      expect(html2).toContain('▲');
+
+      // サイクル位置8（長い休憩）
+      timer['displayState'].cyclePosition = 8;
+      timer['updateDisplay']();
+
+      const html8 = progressDotsElement?.innerHTML || '';
+      expect(html8).toContain('progress-long-done'); // 完了した長い休憩
+      expect(html8).toContain('◆');
+    });
+
+    it('should format time display correctly', () => {
+      const timerDisplay = document.getElementById('timerDisplay');
+
+      // 25分
+      timer['displayState'].timeLeft = 25 * 60;
+      timer['displayState'].isRunning = false;
+      timer['updateDisplay']();
+      expect(timerDisplay?.textContent).toBe('25:00');
+
+      // 5分30秒
+      timer['displayState'].timeLeft = 5 * 60 + 30;
+      timer['updateDisplay']();
+      expect(timerDisplay?.textContent).toBe('05:30');
+
+      // 1分
+      timer['displayState'].timeLeft = 60;
+      timer['updateDisplay']();
+      expect(timerDisplay?.textContent).toBe('01:00');
+
+      // 30秒
+      timer['displayState'].timeLeft = 30;
+      timer['updateDisplay']();
+      expect(timerDisplay?.textContent).toBe('00:30');
+    });
+  });
+
+  describe('display loop management', () => {
+    beforeEach(async () => {
+      timer = new PomodoroTimer();
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    it('should start display loop when timer starts', () => {
+      timer['displayState'].isRunning = false;
+      timer['displayState'].displayIntervalId = null;
+
+      // タイマー開始をシミュレート
+      const mockState = {
+        timeLeft: 300,
+        isRunning: true,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: Date.now() + 300000,
+        startTime: Date.now(),
+        pausedAt: null,
+        pausedDuration: 0,
+        lastSaveTime: Date.now()
+      };
+
+      timer['syncDisplayState'](mockState);
+
+      expect(timer['displayState'].displayIntervalId).not.toBeNull();
+    });
+
+    it('should stop display loop when timer stops', () => {
+      // まず実行状態にする
+      timer['displayState'].isRunning = true;
+      timer['startDisplayLoop']();
+
+      expect(timer['displayState'].displayIntervalId).not.toBeNull();
+
+      // 停止状態にする
+      const mockState = {
+        timeLeft: 300,
+        isRunning: false,
+        sessionType: 'work',
+        cyclePosition: 1,
+        endTime: null,
+        startTime: Date.now(),
+        pausedAt: Date.now(),
+        pausedDuration: 0,
+        lastSaveTime: Date.now()
+      };
+
+      timer['syncDisplayState'](mockState);
+
+      expect(timer['displayState'].displayIntervalId).toBeNull();
+    });
+
+    it('should clean up display loop on beforeunload', () => {
+      timer['startDisplayLoop']();
+      const intervalId = timer['displayState'].displayIntervalId;
+
+      expect(intervalId).not.toBeNull();
+
+      // beforeunloadイベントをシミュレート
+      window.dispatchEvent(new Event('beforeunload'));
+
+      expect(timer['displayState'].displayIntervalId).toBeNull();
+    });
+  });
+
+  describe('static methods', () => {
+    it('should determine session type from position correctly', () => {
+      expect(PomodoroTimer.getSessionTypeFromPosition(1)).toBe('work');
+      expect(PomodoroTimer.getSessionTypeFromPosition(2)).toBe('shortBreak');
+      expect(PomodoroTimer.getSessionTypeFromPosition(3)).toBe('work');
+      expect(PomodoroTimer.getSessionTypeFromPosition(4)).toBe('shortBreak');
+      expect(PomodoroTimer.getSessionTypeFromPosition(5)).toBe('work');
+      expect(PomodoroTimer.getSessionTypeFromPosition(6)).toBe('shortBreak');
+      expect(PomodoroTimer.getSessionTypeFromPosition(7)).toBe('work');
+      expect(PomodoroTimer.getSessionTypeFromPosition(8)).toBe('longBreak');
+    });
+
+    it('should return correct session durations', () => {
+      expect(PomodoroTimer.getSessionDuration('work')).toBe(25 * 60);
+      expect(PomodoroTimer.getSessionDuration('shortBreak')).toBe(5 * 60);
+      expect(PomodoroTimer.getSessionDuration('longBreak')).toBe(15 * 60);
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle missing DOM elements gracefully', () => {
+      document.body.innerHTML = ''; // DOM要素を削除
+
+      expect(() => {
+        timer = new PomodoroTimer();
+      }).toThrow('Element with id "timerDisplay" not found');
+    });
+
+    it('should handle storage errors gracefully', async () => {
+      mockChrome.storage.local.get.mockRejectedValue(new Error('Storage error'));
+
+      timer = new PomodoroTimer();
+
+      // 初期化の完了を待つ（エラーハンドリング含む）
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // エラーが発生してもデフォルト状態で動作することを確認
+      expect(timer.getTimeLeft()).toBe(25 * 60);
+      expect(timer.getIsRunning()).toBe(false);
+    });
+  });
+});
