@@ -32,9 +32,9 @@ const mockChrome = {
 };
 
 // グローバルなchromeオブジェクトをモック
-global.chrome = mockChrome as any;
+(globalThis as any).chrome = mockChrome;
 
-describe('BackgroundTimer - 案2A改アーキテクチャ', () => {
+describe('BackgroundTimer', () => {
   let backgroundTimer: BackgroundTimer;
   let consoleLogSpy: any;
   let consoleErrorSpy: any;

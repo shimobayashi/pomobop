@@ -21,9 +21,9 @@ const mockChrome = {
 };
 
 // グローバルなchromeオブジェクトをモック
-global.chrome = mockChrome as any;
+(globalThis as any).chrome = mockChrome;
 
-describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
+describe('PomodoroTimer', () => {
   let timer: PomodoroTimer;
 
   beforeEach(() => {
@@ -91,7 +91,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: false,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: null,
         startTime: null,
@@ -119,7 +119,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: true,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: endTime,
         startTime: now,
@@ -147,7 +147,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: true,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: Date.now() + 300000,
         startTime: Date.now(),
@@ -271,7 +271,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const syncMessage = {
         type: 'STATE_SYNC',
         endTime: Date.now() + 300000,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         isRunning: true,
         timeLeft: 300
@@ -299,7 +299,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: true,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: correctEndTime, // 正しい時刻
         startTime: now,
@@ -428,7 +428,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: true,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: Date.now() + 300000,
         startTime: Date.now(),
@@ -453,7 +453,7 @@ describe('PomodoroTimer - 案2A改アーキテクチャ', () => {
       const mockState = {
         timeLeft: 300,
         isRunning: false,
-        sessionType: 'work',
+        sessionType: 'work' as const,
         cyclePosition: 1,
         endTime: null,
         startTime: Date.now(),
