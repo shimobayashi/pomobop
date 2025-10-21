@@ -2,6 +2,7 @@
   "name": "pomodoro-extension",
   "version": "1.0.0",
   "description": "A Chrome extension for Pomodoro timer",
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
