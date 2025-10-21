@@ -246,9 +246,8 @@ export class PomodoroTimer {
 
   private async setTimeAndStart(timeInSeconds: number): Promise<void> {
     try {
-      // バックグラウンドにリセット＋時間設定を送信
-      await this.sendCommand('RESET_TIMER');
-      await this.sendCommand('SET_TIME', { timeLeft: timeInSeconds });
+      // バックグラウンドにリセット+時間設定を一度に送信
+      await this.sendCommand('SET_TIME_AND_RESET', { timeLeft: timeInSeconds });
       await this.sendCommand('START_TIMER');
     } catch (error) {
       console.log('Preset commands failed, background may not be ready');

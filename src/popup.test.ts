@@ -213,10 +213,9 @@ describe('PomodoroTimer', () => {
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // プリセットボタンは RESET_TIMER → SET_TIME → START_TIMER の順で送信
+      // プリセットボタンは SET_TIME_AND_RESET → START_TIMER の順で送信
       const calls = mockChrome.runtime.sendMessage.mock.calls;
-      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
-      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 25 * 60 }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME_AND_RESET', timeLeft: 25 * 60 }]);
       expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
     });
 
@@ -228,8 +227,7 @@ describe('PomodoroTimer', () => {
 
       // 1秒プリセットのコマンドを確認
       const calls = mockChrome.runtime.sendMessage.mock.calls;
-      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
-      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 1 }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME_AND_RESET', timeLeft: 1 }]);
       expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
     });
 
@@ -241,8 +239,7 @@ describe('PomodoroTimer', () => {
 
       // 5分プリセットのコマンドを確認
       const calls = mockChrome.runtime.sendMessage.mock.calls;
-      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
-      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 5 * 60 }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME_AND_RESET', timeLeft: 5 * 60 }]);
       expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
     });
 

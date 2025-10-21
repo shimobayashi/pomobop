@@ -161,6 +161,22 @@ describe('BackgroundTimer', () => {
         })
       });
     });
+
+    it('should handle SET_TIME_AND_RESET command', async () => {
+      const message = { type: 'SET_TIME_AND_RESET', timeLeft: 900 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          timeLeft: 900,
+          isRunning: false,
+          sessionType: 'work',
+          cyclePosition: 1
+        })
+      });
+    });
   });
 
   describe('timer completion', () => {

@@ -75,8 +75,14 @@ export class BackgroundTimer {
         await this.resetTimer();
         break;
       case 'SET_TIME':
-        if (message.timeLeft) {
+        if (message.timeLeft !== undefined) {
           await this.setTime(message.timeLeft);
+        }
+        break;
+      case 'SET_TIME_AND_RESET':
+        // 時間設定とサイクルリセットを同時に実行
+        if (message.timeLeft !== undefined) {
+          await this.setTimeAndReset(message.timeLeft);
         }
         break;
       case 'GET_STATE':
@@ -145,11 +151,27 @@ export class BackgroundTimer {
   }
 
   private async setTime(timeLeft: number): Promise<void> {
-    if (!this.state.isRunning) {
-      this.state.timeLeft = timeLeft;
-      this.state.lastUpdateTime = Date.now();
-      await this.saveAndBroadcastState();
-    }
+    this.state.timeLeft = timeLeft;
+    this.state.lastUpdateTime = Date.now();
+    await this.saveAndBroadcastState();
+  }
+
+  private async setTimeAndReset(timeLeft: number): Promise<void> {
+    // タイマーを停止してサイクルをリセットし、指定時間を設定
+    this.state.isRunning = false;
+    this.state.timeLeft = timeLeft;
+    this.state.startTime = null;
+    this.state.endTime = null;
+    this.state.pausedAt = null;
+    this.state.pausedDuration = 0;
+    this.state.sessionType = 'work';
+    this.state.cyclePosition = 1;
+    this.state.lastUpdateTime = Date.now();
+
+    await chrome.alarms.clear(this.alarmName);
+    await this.saveAndBroadcastState();
+
+    console.log(`Timer reset to ${timeLeft} seconds`);
   }
 
   private calculateCurrentTimeLeft(): number {
