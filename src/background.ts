@@ -129,7 +129,7 @@ export class BackgroundTimer {
 
   private async resetTimer(): Promise<void> {
     this.state.isRunning = false;
-    this.state.timeLeft = 25 * 60;
+    this.state.timeLeft = 25 * 60; // デフォルト25分（SET_TIMEで上書きされる）
     this.state.startTime = null;
     this.state.endTime = null;
     this.state.pausedAt = null;
@@ -137,10 +137,10 @@ export class BackgroundTimer {
     this.state.sessionType = 'work';
     this.state.cyclePosition = 1;
     this.state.lastUpdateTime = Date.now();
-    
+
     await chrome.alarms.clear(this.alarmName);
     await this.saveAndBroadcastState();
-    
+
     console.log('Timer reset');
   }
 
@@ -154,7 +154,7 @@ export class BackgroundTimer {
 
   private calculateCurrentTimeLeft(): number {
     if (!this.state.endTime) {
-      return this.getSessionDuration(this.state.sessionType);
+      return this.state.timeLeft;
     }
 
     const now = Date.now();

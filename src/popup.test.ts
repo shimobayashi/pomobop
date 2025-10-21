@@ -220,6 +220,32 @@ describe('PomodoroTimer', () => {
       expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
     });
 
+    it('should send correct time for 1-second test button', async () => {
+      const preset1secBtn = document.getElementById('preset1sec') as HTMLButtonElement;
+      preset1secBtn.click();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 1秒プリセットのコマンドを確認
+      const calls = mockChrome.runtime.sendMessage.mock.calls;
+      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 1 }]);
+      expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
+    });
+
+    it('should send correct time for 5-minute preset button', async () => {
+      const preset5Btn = document.getElementById('preset5') as HTMLButtonElement;
+      preset5Btn.click();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 5分プリセットのコマンドを確認
+      const calls = mockChrome.runtime.sendMessage.mock.calls;
+      expect(calls).toContainEqual([{ type: 'RESET_TIMER' }]);
+      expect(calls).toContainEqual([{ type: 'SET_TIME', timeLeft: 5 * 60 }]);
+      expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
+    });
+
     it('should handle send command errors gracefully', async () => {
       mockChrome.runtime.sendMessage.mockRejectedValue(new Error('Could not establish connection'));
 
