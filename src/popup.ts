@@ -59,6 +59,7 @@ export class PomodoroTimer {
     this.preset1sec = this.getElementById<HTMLButtonElement>('preset1sec');
     
     this.initEventListeners();
+    this.initProgressDotsListener();
     this.initStorageListener();
     this.initMessageListener();
     this.initializeFromBackground().then(() => {
@@ -101,6 +102,25 @@ export class PomodoroTimer {
     window.addEventListener('beforeunload', () => {
       this.stopDisplayLoop();
     });
+  }
+
+  private initProgressDotsListener(): void {
+    // 進捗ドットクリック時のイベント委譲
+    this.progressDotsDisplay.addEventListener('click', async (event) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'SPAN' && target.dataset.position) {
+        const position = parseInt(target.dataset.position, 10);
+        await this.jumpToPosition(position);
+      }
+    });
+  }
+
+  private async jumpToPosition(position: number): Promise<void> {
+    try {
+      await this.sendCommand('JUMP_TO_POSITION', { position });
+    } catch (error) {
+      console.log('Jump to position command failed, background may not be ready');
+    }
   }
 
   private initStorageListener(): void {
@@ -300,7 +320,7 @@ export class PomodoroTimer {
         className = i <= position ? 'progress-short-done' : 'progress-short-todo';
       }
       
-      dotsHtml += `<span class="${className}">${symbol}</span>`;
+      dotsHtml += `<span class="${className}" data-position="${i}" style="cursor: pointer;">${symbol}</span>`;
     }
     return dotsHtml;
   }

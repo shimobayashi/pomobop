@@ -85,6 +85,12 @@ export class BackgroundTimer {
           await this.setTimeAndReset(message.timeLeft);
         }
         break;
+      case 'JUMP_TO_POSITION':
+        // 進捗位置への直接ジャンプ
+        if (message.position !== undefined) {
+          await this.jumpToPosition(message.position);
+        }
+        break;
       case 'GET_STATE':
         // ポップアップ初期化時の状態要求
         await this.broadcastState();
@@ -172,6 +178,32 @@ export class BackgroundTimer {
     await this.saveAndBroadcastState();
 
     console.log(`Timer reset to ${timeLeft} seconds`);
+  }
+
+  private async jumpToPosition(position: number): Promise<void> {
+    // 指定された位置にジャンプ（1-8の範囲）
+    if (position < 1 || position > 8) {
+      console.error(`Invalid position: ${position}`);
+      return;
+    }
+
+    // タイマーを停止して新しいセッションに切り替え
+    this.state.cyclePosition = position;
+    this.state.sessionType = this.getSessionTypeFromPosition(position);
+    
+    const newDuration = this.getSessionDuration(this.state.sessionType);
+    this.state.timeLeft = newDuration;
+    this.state.isRunning = false;
+    this.state.startTime = null;
+    this.state.endTime = null;
+    this.state.pausedAt = null;
+    this.state.pausedDuration = 0;
+    this.state.lastUpdateTime = Date.now();
+
+    await chrome.alarms.clear(this.alarmName);
+    await this.saveAndBroadcastState();
+
+    console.log(`Jumped to position ${position} (${this.state.sessionType})`);
   }
 
   private calculateCurrentTimeLeft(): number {
