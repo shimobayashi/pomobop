@@ -243,6 +243,40 @@ describe('PomodoroTimer', () => {
       expect(calls).toContainEqual([{ type: 'START_TIMER' }]);
     });
 
+    it('should send JUMP_TO_POSITION command when progress dot clicked', async () => {
+      const progressDotsDisplay = document.getElementById('progressDots') as HTMLDivElement;
+
+      // 進捗ドットを設定（position 3 にクリック）
+      progressDotsDisplay.innerHTML = '<span data-position="3" style="cursor: pointer;">●</span>';
+
+      const dotElement = progressDotsDisplay.querySelector('[data-position="3"]') as HTMLElement;
+      dotElement.click();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
+        type: 'JUMP_TO_POSITION',
+        position: 3
+      });
+    });
+
+    it('should handle clicks on progress dots without position data', async () => {
+      const progressDotsDisplay = document.getElementById('progressDots') as HTMLDivElement;
+
+      // data-position属性がない要素
+      progressDotsDisplay.innerHTML = '<span style="cursor: pointer;">●</span>';
+
+      const dotElement = progressDotsDisplay.querySelector('span') as HTMLElement;
+      dotElement.click();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // JUMP_TO_POSITIONは送信されないはず
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'JUMP_TO_POSITION' })
+      );
+    });
+
     it('should handle send command errors gracefully', async () => {
       mockChrome.runtime.sendMessage.mockRejectedValue(new Error('Could not establish connection'));
 

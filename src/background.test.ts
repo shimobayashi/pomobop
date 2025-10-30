@@ -177,6 +177,86 @@ describe('BackgroundTimer', () => {
         })
       });
     });
+
+    it('should handle JUMP_TO_POSITION command for work session', async () => {
+      const message = { type: 'JUMP_TO_POSITION', position: 3 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          cyclePosition: 3,
+          sessionType: 'work',
+          timeLeft: 25 * 60,
+          isRunning: false
+        })
+      });
+
+      expect(mockChrome.alarms.clear).toHaveBeenCalledWith('pomodoroTimer');
+    });
+
+    it('should handle JUMP_TO_POSITION command for short break session', async () => {
+      const message = { type: 'JUMP_TO_POSITION', position: 4 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          cyclePosition: 4,
+          sessionType: 'shortBreak',
+          timeLeft: 5 * 60,
+          isRunning: false
+        })
+      });
+    });
+
+    it('should handle JUMP_TO_POSITION command for long break session', async () => {
+      const message = { type: 'JUMP_TO_POSITION', position: 8 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        pomodoroState: expect.objectContaining({
+          cyclePosition: 8,
+          sessionType: 'longBreak',
+          timeLeft: 15 * 60,
+          isRunning: false
+        })
+      });
+    });
+
+    it('should ignore invalid JUMP_TO_POSITION position (too low)', async () => {
+      const message = { type: 'JUMP_TO_POSITION', position: 0 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 無効な位置の場合は状態更新されないことを確認
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('should ignore invalid JUMP_TO_POSITION position (too high)', async () => {
+      const message = { type: 'JUMP_TO_POSITION', position: 9 };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 無効な位置の場合は状態更新されないことを確認
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+    });
   });
 
   describe('timer completion', () => {
