@@ -29,6 +29,9 @@ const mockChrome = {
     },
     sendMessage: vi.fn(),
   },
+  action: {
+    openPopup: vi.fn(),
+  },
 };
 
 // グローバルなchromeオブジェクトをモック
@@ -256,6 +259,33 @@ describe('BackgroundTimer', () => {
 
       // 無効な位置の場合は状態更新されないことを確認
       expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('should handle OPEN_POPUP command', async () => {
+      const message = { type: 'OPEN_POPUP' };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // chrome.action.openPopup が呼ばれることを確認
+      expect(mockChrome.action.openPopup).toHaveBeenCalled();
+    });
+
+    it('should handle OPEN_POPUP command error gracefully', async () => {
+      // openPopup がエラーを投げるようにモック
+      mockChrome.action.openPopup.mockRejectedValueOnce(new Error('Cannot open popup'));
+
+      const message = { type: 'OPEN_POPUP' };
+
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // エラーが console.error に出力されることを確認
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to open popup:', expect.any(Error));
     });
   });
 
