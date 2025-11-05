@@ -95,6 +95,14 @@ export class BackgroundTimer {
         // ポップアップ初期化時の状態要求
         await this.broadcastState();
         break;
+      case 'OPEN_POPUP':
+        // ポップアップを開く
+        try {
+          await chrome.action.openPopup();
+        } catch (error) {
+          console.error('Failed to open popup:', error);
+        }
+        break;
     }
   }
 
