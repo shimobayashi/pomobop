@@ -19,6 +19,7 @@ interface TimerState {
 export class BackgroundTimer {
   private readonly alarmName = 'pomodoroTimer';
   private readonly syncAlarmName = 'pomodoroSync';
+  private readonly notificationPageUrl = chrome.runtime.getURL('notification.html');
   private state: TimerState;
 
   constructor() {
@@ -66,8 +67,7 @@ export class BackgroundTimer {
   private async handleCommand(message: any): Promise<void> {
     switch (message.type) {
       case 'START_TIMER':
-        await this.closeAllNotificationTabs();
-        await this.startTimer();
+        await Promise.all([this.closeAllNotificationTabs(), this.startTimer()]);
         break;
       case 'PAUSE_TIMER':
         await this.pauseTimer();
@@ -128,8 +128,7 @@ export class BackgroundTimer {
 
   private async closeAllNotificationTabs(): Promise<void> {
     try {
-      const notificationUrl = chrome.runtime.getURL('notification.html');
-      const tabs = await chrome.tabs.query({ url: notificationUrl });
+      const tabs = await chrome.tabs.query({ url: this.notificationPageUrl });
       const tabIds = tabs.map(tab => tab.id).filter((id): id is number => id !== undefined);
       if (tabIds.length > 0) {
         await chrome.tabs.remove(tabIds);
@@ -255,7 +254,7 @@ export class BackgroundTimer {
     // 通知ページを開く
     try {
       await chrome.tabs.create({
-        url: chrome.runtime.getURL('notification.html')
+        url: this.notificationPageUrl
       });
     } catch (error) {
       console.error('Failed to open notification page:', error);
