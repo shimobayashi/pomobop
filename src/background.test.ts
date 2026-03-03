@@ -21,6 +21,8 @@ const mockChrome = {
   },
   tabs: {
     create: vi.fn(),
+    query: vi.fn(),
+    remove: vi.fn(),
   },
   runtime: {
     getURL: vi.fn().mockReturnValue('chrome-extension://test/notification.html'),
@@ -51,6 +53,9 @@ describe('BackgroundTimer', () => {
 
     // chrome.runtime.getURLのモック
     mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/notification.html');
+
+    // chrome.tabs.queryのデフォルトモック（通知タブなし）
+    mockChrome.tabs.query.mockResolvedValue([]);
 
     // コンソールをモック
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -110,11 +115,26 @@ describe('BackgroundTimer', () => {
       // 非同期処理が完了するまで少し待つ
       await new Promise(resolve => setTimeout(resolve, 10));
 
+      // 通知タブのクローズ処理が呼ばれること
+      expect(mockChrome.tabs.query).toHaveBeenCalledWith({ url: 'chrome-extension://test/notification.html' });
+
       // タイマー開始の確認 - pomodoroTimerアラームが作成されること
       expect(mockChrome.alarms.create).toHaveBeenCalledWith('pomodoroTimer', {
         when: 1000000 + (25 * 60 * 1000) // 現在時刻 + 25分
       });
       expect(mockChrome.storage.local.set).toHaveBeenCalled();
+    });
+
+    it('should close notification tabs when START_TIMER command is received', async () => {
+      // 通知タブが存在する場合のモック
+      mockChrome.tabs.query.mockResolvedValue([{ id: 101 }, { id: 102 }]);
+
+      const message = { type: 'START_TIMER' };
+      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      await messageHandler(message, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.tabs.remove).toHaveBeenCalledWith([101, 102]);
     });
 
     it('should handle PAUSE_TIMER command', async () => {
@@ -124,6 +144,9 @@ describe('BackgroundTimer', () => {
       const startMessage = { type: 'START_TIMER' };
       const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       await messageHandler(startMessage, {}, () => {});
+
+      // 非同期処理（closeAllNotificationTabs + startTimer）の完了を待つ
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       // モックをクリア
       vi.clearAllMocks();
@@ -415,6 +438,9 @@ describe('BackgroundTimer', () => {
       // タイマーを開始状態にする
       const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       await messageHandler({ type: 'START_TIMER' }, {}, () => {});
+
+      // 非同期処理（closeAllNotificationTabs + startTimer）の完了を待つ
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       // アラームハンドラーを取得
       const alarmHandler = mockChrome.alarms.onAlarm.addListener.mock.calls[0][0];
