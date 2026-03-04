@@ -67,7 +67,9 @@ export class BackgroundTimer {
   private async handleCommand(message: any): Promise<void> {
     switch (message.type) {
       case 'START_TIMER':
-        await Promise.all([this.closeAllNotificationTabs(), this.startTimer()]);
+        await this.closeAllNotificationTabs();
+        await this.openPopup();
+        await this.startTimer();
         break;
       case 'PAUSE_TIMER':
         await this.pauseTimer();
@@ -96,14 +98,7 @@ export class BackgroundTimer {
         // ポップアップ初期化時の状態要求
         await this.broadcastState();
         break;
-      case 'OPEN_POPUP':
-        // ポップアップを開く
-        try {
-          await chrome.action.openPopup();
-        } catch (error) {
-          console.error('Failed to open popup:', error);
-        }
-        break;
+
     }
   }
 
@@ -123,6 +118,14 @@ export class BackgroundTimer {
       await this.saveAndBroadcastState();
       
       console.log(`Timer started: ${this.state.timeLeft} seconds remaining`);
+    }
+  }
+
+  private async openPopup(): Promise<void> {
+    try {
+      await chrome.action.openPopup();
+    } catch (error) {
+      console.error('Failed to open popup:', error);
     }
   }
 

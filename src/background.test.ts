@@ -284,30 +284,23 @@ describe('BackgroundTimer', () => {
       expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
     });
 
-    it('should handle OPEN_POPUP command', async () => {
-      const message = { type: 'OPEN_POPUP' };
-
+    it('should open popup on START_TIMER', async () => {
+      const message = { type: 'START_TIMER' };
       const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       await messageHandler(message, {}, () => {});
-
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // chrome.action.openPopup が呼ばれることを確認
       expect(mockChrome.action.openPopup).toHaveBeenCalled();
     });
 
-    it('should handle OPEN_POPUP command error gracefully', async () => {
-      // openPopup がエラーを投げるようにモック
+    it('should handle openPopup error gracefully on START_TIMER', async () => {
       mockChrome.action.openPopup.mockRejectedValueOnce(new Error('Cannot open popup'));
 
-      const message = { type: 'OPEN_POPUP' };
-
+      const message = { type: 'START_TIMER' };
       const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       await messageHandler(message, {}, () => {});
-
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // エラーが console.error に出力されることを確認
       expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to open popup:', expect.any(Error));
     });
   });

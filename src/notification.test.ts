@@ -37,31 +37,18 @@ describe('notification.ts', () => {
     vi.clearAllMocks();
   });
 
-  it('should send START_TIMER message when close button is clicked', () => {
+  it('should send only START_TIMER message when close button is clicked', () => {
     const closeBtn = document.getElementById('closeBtn');
 
     // クリックイベントリスナーを追加（notification.tsのコードと同じ）
     closeBtn?.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'START_TIMER' });
-      chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
     });
 
     closeBtn?.click();
 
+    expect(mockChrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'START_TIMER' });
-  });
-
-  it('should send OPEN_POPUP message when close button is clicked', () => {
-    const closeBtn = document.getElementById('closeBtn');
-
-    closeBtn?.addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'START_TIMER' });
-      chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
-    });
-
-    closeBtn?.click();
-
-    expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'OPEN_POPUP' });
   });
 
   it('should handle when closeBtn does not exist', () => {
