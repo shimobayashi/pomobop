@@ -17,6 +17,12 @@ interface TimerState {
 }
 
 export class BackgroundTimer {
+  private static readonly sessionConfig: Record<'work' | 'shortBreak' | 'longBreak', { color: string; text: string }> = {
+    work: { color: '#d32f2f', text: '作業中' },
+    shortBreak: { color: '#388e3c', text: '短い休憩' },
+    longBreak: { color: '#1976d2', text: '長い休憩' }
+  };
+
   private readonly alarmName = 'pomodoroTimer';
   private readonly syncAlarmName = 'pomodoroSync';
   private readonly notificationPageUrl = chrome.runtime.getURL('notification.html');
@@ -346,38 +352,40 @@ export class BackgroundTimer {
 
   private async updateActionBadge(): Promise<void> {
     try {
-      if (this.state.isRunning) {
-        const minutes = Math.ceil(this.calculateCurrentTimeLeft() / 60);
-        await chrome.action.setBadgeText({ text: minutes >= 1 ? String(minutes) : '<1' });
-        await chrome.action.setBadgeBackgroundColor({ color: this.getBadgeColor(this.state.sessionType) });
-        await chrome.action.setTitle({ title: `pomobop - ${this.getSessionTypeText(this.state.sessionType)}` });
-      } else if (this.state.pausedAt !== null) {
-        await chrome.action.setBadgeText({ text: '||' });
-        await chrome.action.setBadgeBackgroundColor({ color: '#9e9e9e' });
-        await chrome.action.setTitle({ title: `pomobop - 一時停止中（${this.getSessionTypeText(this.state.sessionType)}）` });
-      } else {
-        await chrome.action.setBadgeText({ text: '' });
-        await chrome.action.setTitle({ title: 'pomobop' });
+      const { text, color, title } = this.getBadgeAppearance();
+
+      const updates: Promise<void>[] = [
+        chrome.action.setBadgeText({ text }),
+        chrome.action.setTitle({ title })
+      ];
+      if (color !== null) {
+        updates.push(chrome.action.setBadgeBackgroundColor({ color }));
       }
+      await Promise.all(updates);
     } catch (error) {
       console.error('Failed to update action badge:', error);
     }
   }
 
-  private getBadgeColor(sessionType: 'work' | 'shortBreak' | 'longBreak'): string {
-    switch (sessionType) {
-      case 'work': return '#d32f2f';
-      case 'shortBreak': return '#388e3c';
-      case 'longBreak': return '#1976d2';
-    }
-  }
+  private getBadgeAppearance(): { text: string; color: string | null; title: string } {
+    const config = BackgroundTimer.sessionConfig[this.state.sessionType];
 
-  private getSessionTypeText(sessionType: 'work' | 'shortBreak' | 'longBreak'): string {
-    switch (sessionType) {
-      case 'work': return '作業中';
-      case 'shortBreak': return '短い休憩';
-      case 'longBreak': return '長い休憩';
+    if (this.state.isRunning) {
+      const minutes = Math.ceil(this.calculateCurrentTimeLeft() / 60);
+      return {
+        text: minutes >= 1 ? String(minutes) : '<1',
+        color: config.color,
+        title: `pomobop - ${config.text}`
+      };
     }
+    if (this.state.pausedAt !== null) {
+      return {
+        text: '||',
+        color: '#9e9e9e',
+        title: `pomobop - 一時停止中（${config.text}）`
+      };
+    }
+    return { text: '', color: null, title: 'pomobop' };
   }
 
   private async broadcastState(): Promise<void> {
