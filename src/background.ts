@@ -322,6 +322,9 @@ export class BackgroundTimer {
     } catch (error) {
       // ポップアップが閉じている場合は無視
     }
+
+    // 残り分数のバッジ表示を最新に保つ
+    await this.updateActionBadge();
   }
 
   private async saveAndBroadcastState(): Promise<void> {
@@ -336,8 +339,45 @@ export class BackgroundTimer {
       pausedAt: this.state.pausedAt,
       pausedDuration: this.state.pausedDuration || 0
     };
-    
+
     await chrome.storage.local.set({ pomodoroState: stateToSave });
+    await this.updateActionBadge();
+  }
+
+  private async updateActionBadge(): Promise<void> {
+    try {
+      if (this.state.isRunning) {
+        const minutes = Math.ceil(this.calculateCurrentTimeLeft() / 60);
+        await chrome.action.setBadgeText({ text: minutes >= 1 ? String(minutes) : '<1' });
+        await chrome.action.setBadgeBackgroundColor({ color: this.getBadgeColor(this.state.sessionType) });
+        await chrome.action.setTitle({ title: `pomobop - ${this.getSessionTypeText(this.state.sessionType)}` });
+      } else if (this.state.pausedAt !== null) {
+        await chrome.action.setBadgeText({ text: '||' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#9e9e9e' });
+        await chrome.action.setTitle({ title: `pomobop - 一時停止中（${this.getSessionTypeText(this.state.sessionType)}）` });
+      } else {
+        await chrome.action.setBadgeText({ text: '' });
+        await chrome.action.setTitle({ title: 'pomobop' });
+      }
+    } catch (error) {
+      console.error('Failed to update action badge:', error);
+    }
+  }
+
+  private getBadgeColor(sessionType: 'work' | 'shortBreak' | 'longBreak'): string {
+    switch (sessionType) {
+      case 'work': return '#d32f2f';
+      case 'shortBreak': return '#388e3c';
+      case 'longBreak': return '#1976d2';
+    }
+  }
+
+  private getSessionTypeText(sessionType: 'work' | 'shortBreak' | 'longBreak'): string {
+    switch (sessionType) {
+      case 'work': return '作業中';
+      case 'shortBreak': return '短い休憩';
+      case 'longBreak': return '長い休憩';
+    }
   }
 
   private async broadcastState(): Promise<void> {
@@ -378,6 +418,8 @@ export class BackgroundTimer {
           await this.handleTimerComplete();
         }
       }
+
+      await this.updateActionBadge();
     }
   }
 }
