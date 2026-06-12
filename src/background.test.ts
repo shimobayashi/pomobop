@@ -33,6 +33,9 @@ const mockChrome = {
   },
   action: {
     openPopup: vi.fn(),
+    setBadgeText: vi.fn(),
+    setBadgeBackgroundColor: vi.fn(),
+    setTitle: vi.fn(),
   },
 };
 
@@ -461,6 +464,57 @@ describe('BackgroundTimer', () => {
 
       // 通知ページが開かれることを確認
       expect(mockChrome.tabs.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('action badge', () => {
+    let messageHandler: (message: any, sender: any, sendResponse: any) => any;
+
+    beforeEach(async () => {
+      backgroundTimer = new BackgroundTimer();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      vi.clearAllMocks();
+    });
+
+    it('should show remaining minutes with the work color while running', async () => {
+      await messageHandler({ type: 'START_TIMER' }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '25' });
+      expect(mockChrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#d32f2f' });
+    });
+
+    it('should use the break color after jumping to a break session', async () => {
+      // position 2 は短い休憩
+      await messageHandler({ type: 'JUMP_TO_POSITION', position: 2 }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.clearAllMocks();
+
+      await messageHandler({ type: 'START_TIMER' }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '5' });
+      expect(mockChrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#388e3c' });
+    });
+
+    it('should show the paused indicator when paused', async () => {
+      await messageHandler({ type: 'START_TIMER' }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.clearAllMocks();
+
+      await messageHandler({ type: 'PAUSE_TIMER' }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '||' });
+      expect(mockChrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#9e9e9e' });
+    });
+
+    it('should clear the badge when reset', async () => {
+      await messageHandler({ type: 'RESET_TIMER' }, {}, () => {});
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
     });
   });
 });

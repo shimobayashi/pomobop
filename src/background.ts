@@ -17,6 +17,12 @@ interface TimerState {
 }
 
 export class BackgroundTimer {
+  private static readonly sessionConfig: Record<'work' | 'shortBreak' | 'longBreak', { color: string; text: string }> = {
+    work: { color: '#d32f2f', text: '作業中' },
+    shortBreak: { color: '#388e3c', text: '短い休憩' },
+    longBreak: { color: '#1976d2', text: '長い休憩' }
+  };
+
   private readonly alarmName = 'pomodoroTimer';
   private readonly syncAlarmName = 'pomodoroSync';
   private readonly notificationPageUrl = chrome.runtime.getURL('notification.html');
@@ -322,6 +328,9 @@ export class BackgroundTimer {
     } catch (error) {
       // ポップアップが閉じている場合は無視
     }
+
+    // 残り分数のバッジ表示を最新に保つ
+    await this.updateActionBadge();
   }
 
   private async saveAndBroadcastState(): Promise<void> {
@@ -336,8 +345,47 @@ export class BackgroundTimer {
       pausedAt: this.state.pausedAt,
       pausedDuration: this.state.pausedDuration || 0
     };
-    
+
     await chrome.storage.local.set({ pomodoroState: stateToSave });
+    await this.updateActionBadge();
+  }
+
+  private async updateActionBadge(): Promise<void> {
+    try {
+      const { text, color, title } = this.getBadgeAppearance();
+
+      const updates: Promise<void>[] = [
+        chrome.action.setBadgeText({ text }),
+        chrome.action.setTitle({ title })
+      ];
+      if (color !== null) {
+        updates.push(chrome.action.setBadgeBackgroundColor({ color }));
+      }
+      await Promise.all(updates);
+    } catch (error) {
+      console.error('Failed to update action badge:', error);
+    }
+  }
+
+  private getBadgeAppearance(): { text: string; color: string | null; title: string } {
+    const config = BackgroundTimer.sessionConfig[this.state.sessionType];
+
+    if (this.state.isRunning) {
+      const minutes = Math.ceil(this.calculateCurrentTimeLeft() / 60);
+      return {
+        text: minutes >= 1 ? String(minutes) : '<1',
+        color: config.color,
+        title: `pomobop - ${config.text}`
+      };
+    }
+    if (this.state.pausedAt !== null) {
+      return {
+        text: '||',
+        color: '#9e9e9e',
+        title: `pomobop - 一時停止中（${config.text}）`
+      };
+    }
+    return { text: '', color: null, title: 'pomobop' };
   }
 
   private async broadcastState(): Promise<void> {
@@ -378,6 +426,8 @@ export class BackgroundTimer {
           await this.handleTimerComplete();
         }
       }
+
+      await this.updateActionBadge();
     }
   }
 }
